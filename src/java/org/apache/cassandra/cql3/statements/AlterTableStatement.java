@@ -18,7 +18,11 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,12 +34,23 @@ import com.google.common.collect.Sets;
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
+import org.apache.cassandra.config.MetadataTags;
 import org.apache.cassandra.cql3.*;
+import org.apache.cassandra.db.Column;
+import org.apache.cassandra.db.ColumnFamily;
+import org.apache.cassandra.db.DefsTable;
+import org.apache.cassandra.db.IColumn;
+import org.apache.cassandra.db.SystemTable;
+import org.apache.cassandra.db.Table;
+import org.apache.cassandra.db.filter.QueryFilter;
+import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.MigrationManager;
+import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.transport.messages.ResultMessage;
+import org.apache.cassandra.utils.ByteBufferUtil;
 
 import static org.apache.cassandra.thrift.ThriftValidation.validateColumnFamily;
 
@@ -87,7 +102,26 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         case COLUMN_ALIAS:
                             throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with a PRIMARY KEY part", columnName));
                         case COLUMN_METADATA:
-                            throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with an existing column", columnName));
+                        	ColumnDefinition toAdd = null;
+                        	MetadataTags mtd = null;
+                            for (ColumnDefinition columnDef : cfm.getColumn_metadata().values())
+                            {
+                                if (columnDef.name.equals(columnName.key)){
+                                	toAdd = columnDef;
+                                    // Metadata_tag new record                                              
+                                    mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), cfm.getColumnDefinitionComparator(toAdd).getString(toAdd.name));
+    								//MigrationManager.announceMetadataTagsUpdate(mtd);
+                                }
+                            }   
+                        	
+                            assert toAdd != null && mtd != null;
+                            
+							if(mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
+								MigrationManager.announceMetadataTagsDrop(mtd);
+							}else{
+								// The original functionality
+								throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with an existing column", columnName));
+							}
                     }
                 }
 
@@ -188,15 +222,23 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         throw new InvalidRequestException(String.format("Cannot drop PRIMARY KEY part %s", columnName));
                     case COLUMN_METADATA:
                         ColumnDefinition toDelete = null;
+                        MetadataTags mtd = null;
                         for (ColumnDefinition columnDef : cfm.getColumn_metadata().values())
                         {
-                            if (columnDef.name.equals(columnName.key))
+                            if (columnDef.name.equals(columnName.key)){
                                 toDelete = columnDef;
+                                // Metadata_tag new record                                              
+                                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), cfm.getColumnDefinitionComparator(toDelete).getString(toDelete.name));
+								MigrationManager.announceMetadataTagsUpdate(mtd);
+                            }
                         }
-                        assert toDelete != null;
-                        cfm.removeColumnDefinition(toDelete);
+                        assert toDelete != null && mtd != null;
+                        if(mtd.getValue().equals(MetadataTags.ColumnDrop_PermanentDropp)){
+                        	cfm.removeColumnDefinition(toDelete);
+                        }
                         break;
                 }
+                
                 break;
             case OPTS:
                 if (cfProps == null)

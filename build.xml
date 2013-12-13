@@ -67,8 +67,11 @@
       <isset property="release"/>
     </condition>
     <property name="version" value="${base.version}-SNAPSHOT"/>
-    <property name="version.properties.dir"
-              value="${build.classes.main}/org/apache/cassandra/config/" />
+    <!-- <property name="version.properties.dir"
+              value="${build.src.resources}/org/apache/cassandra/config/" /> -->
+	<property name="version.properties.dir"
+	              value="${build.classes.main}/org/apache/cassandra/config/" />
+	
     <property name="final.name" value="${ant.project.name}-${version}"/>
  
     <!-- details of what version of Maven ANT Tasks to fetch -->
@@ -653,6 +656,7 @@
     <!-- create properties file with C version -->
     <target name="createVersionPropFile">
       <taskdef name="propertyfile" classname="org.apache.tools.ant.taskdefs.optional.PropertyFile"/>
+      <mkdir dir="${version.properties.dir}"/>
       <propertyfile file="${version.properties.dir}/version.properties">
         <entry key="CassandraVersion" value="${version}"/>
       </propertyfile>
@@ -694,6 +698,7 @@
             <src path="${build.src.gen-java}"/>
             <classpath refid="cassandra.classpath"/>
         </javac>
+    	<antcall target="createVersionPropFile"/>
         <copy todir="${build.classes.main}">
             <fileset dir="${build.src.resources}" />
         </copy>
@@ -701,7 +706,7 @@
           <classpath refid="cassandra.classpath" />
         </taskdef>
 
-        <antcall target="createVersionPropFile"/>
+        <!-- <antcall target="createVersionPropFile"/> -->
     </target>
 
     <!-- Stress build file -->

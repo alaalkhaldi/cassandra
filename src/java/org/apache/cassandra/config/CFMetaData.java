@@ -89,7 +89,7 @@ public final class CFMetaData
     public static final CFMetaData OldMigrationsCf = newSystemMetadata(Table.SYSTEM_KS, DefsTable.OLD_MIGRATIONS_CF, 2, "unused", TimeUUIDType.instance, null);
     @Deprecated
     public static final CFMetaData OldSchemaCf = newSystemMetadata(Table.SYSTEM_KS, DefsTable.OLD_SCHEMA_CF, 3, "unused", UTF8Type.instance, null);
-
+   
     public static final CFMetaData IndexCf = compile(5, "CREATE TABLE \"" + SystemTable.INDEX_CF + "\" ("
                                                         + "table_name text,"
                                                         + "index_name text,"
@@ -227,6 +227,14 @@ public final class CFMetaData
                                                           + "token_bytes blob PRIMARY KEY,"
                                                           + "requested_at timestamp"
                                                           + ") WITH COMMENT='ranges requested for transfer here'");
+    
+    public static final CFMetaData MetadataTagsCf = compile("CREATE TABLE \"" + SystemTable.MetadataTags_CF + "\" ("
+														+ "tag text,"
+														+ "target_object text,"
+														+ "value text,"
+														+ "created_at timestamp,"
+														+ "PRIMARY KEY (tag, target_object)"
+														+ ") WITH COMMENT='metadata tag definitions'");
 
     public enum Caching
     {

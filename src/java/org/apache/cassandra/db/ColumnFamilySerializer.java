@@ -28,6 +28,7 @@ import org.apache.cassandra.io.ISSTableSerializer;
 import org.apache.cassandra.io.IVersionedSerializer;
 import org.apache.cassandra.io.sstable.Descriptor;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.UUIDSerializer;
 
 public class ColumnFamilySerializer implements IVersionedSerializer<ColumnFamily>, ISSTableSerializer<ColumnFamily>
@@ -70,6 +71,7 @@ public class ColumnFamilySerializer implements IVersionedSerializer<ColumnFamily
             int written = 0;
             for (IColumn column : cf)
             {
+            	String s = ByteBufferUtil.string(column.name());
                 columnSerializer.serialize(column, dos);
                 written++;
             }

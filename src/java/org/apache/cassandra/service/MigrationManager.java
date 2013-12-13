@@ -35,6 +35,7 @@ import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.KSMetaData;
+import org.apache.cassandra.config.MetadataTags;
 import org.apache.cassandra.config.Schema;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.QueryFilter;
@@ -256,6 +257,33 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
         announce(oldCfm.toSchemaUpdate(cfm, FBUtilities.timestampMicros()));
     }
+    
+    public static void announceMetadataTagsUpdate(MetadataTags mdt) throws ConfigurationException{
+    	//  cfm.validate();
+    	
+    	// CFMetaData oldCfm = Schema.instance.getCFMetaData(cfm.ksName, cfm.cfName);
+        //  if (oldCfm == null)
+        //     throw new ConfigurationException(String.format("Cannot update non existing column family '%s' in keyspace '%s'.", cfm.cfName, cfm.ksName));
+
+        // oldCfm.validateCompatility(cfm);
+
+        // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
+    	announce(mdt.toSchemaUpdate(mdt, FBUtilities.timestampMicros()));
+    }
+    
+    public static void announceMetadataTagsDrop(MetadataTags mdt) throws ConfigurationException{
+    	//  cfm.validate();
+    	
+    	// CFMetaData oldCfm = Schema.instance.getCFMetaData(cfm.ksName, cfm.cfName);
+        //  if (oldCfm == null)
+        //     throw new ConfigurationException(String.format("Cannot update non existing column family '%s' in keyspace '%s'.", cfm.cfName, cfm.ksName));
+
+        // oldCfm.validateCompatility(cfm);
+
+        // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
+    	announce(mdt.dropFromSchema(mdt, FBUtilities.timestampMicros()));
+    }
+
 
     public static void announceKeyspaceDrop(String ksName) throws ConfigurationException
     {
