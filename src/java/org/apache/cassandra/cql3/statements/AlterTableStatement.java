@@ -89,6 +89,8 @@ public class AlterTableStatement extends SchemaAlteringStatement
 
         CFDefinition cfDef = meta.getCfDef();
         CFDefinition.Name name = columnName == null ? null : cfDef.get(columnName);
+        MetadataTags mtd;
+        		
         switch (oType)
         {
             case ADD:
@@ -102,29 +104,17 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         case COLUMN_ALIAS:
                             throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with a PRIMARY KEY part", columnName));
                         case COLUMN_METADATA:
-                        	ColumnDefinition toAdd = null;
-                        	MetadataTags mtd = null;
-                            for (ColumnDefinition columnDef : cfm.getColumn_metadata().values())
-                            {
-                                if (columnDef.name.equals(columnName.key)){
-                                	toAdd = columnDef;
-                                    // Metadata_tag new record                                              
-                                    mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), cfm.getColumnDefinitionComparator(toAdd).getString(toAdd.name));
-    								//MigrationManager.announceMetadataTagsUpdate(mtd);
-                                }
-                            }   
-                        	
-                            assert toAdd != null && mtd != null;
-                            
-							if(mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
-								MigrationManager.announceMetadataTagsDrop(mtd);
-							}else{
-								// The original functionality
-								throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with an existing column", columnName));
-							}
+							throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with an existing column", columnName));
                     }
                 }
+                
+                // check if there is a Metadata_tags for the newly added column
+                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
+                if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
+						MigrationManager.announceMetadataTagsDrop(mtd);
+                }
 
+				// The original functionality
                 AbstractType<?> type = validator.getType();
                 if (type instanceof CollectionType)
                 {
@@ -210,10 +200,21 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 break;
 
             case DROP:
+            	ColumnDefinition toDelete = null;
+            	
                 if (cfDef.isCompact)
                     throw new InvalidRequestException("Cannot drop columns from a compact CF");
-                if (name == null)
-                    throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
+                if (!cfDef.isComposite)
+                	throw new InvalidRequestException("Cannot drop columns from a non-CQL3 CF");
+                if (name == null){
+                	mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
+                	if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
+        				MigrationManager.announceMetadataTagsUpdate(mtd);
+        				break;
+                	}
+                	else
+                		throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
+                }
 
                 switch (name.kind)
                 {
@@ -221,22 +222,21 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     case COLUMN_ALIAS:
                         throw new InvalidRequestException(String.format("Cannot drop PRIMARY KEY part %s", columnName));
                     case COLUMN_METADATA:
-                        ColumnDefinition toDelete = null;
-                        MetadataTags mtd = null;
+                    	mtd = null;
                         for (ColumnDefinition columnDef : cfm.getColumn_metadata().values())
                         {
                             if (columnDef.name.equals(columnName.key)){
                                 toDelete = columnDef;
                                 // Metadata_tag new record                                              
-                                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), cfm.getColumnDefinitionComparator(toDelete).getString(toDelete.name));
+                                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
 								MigrationManager.announceMetadataTagsUpdate(mtd);
                             }
                         }
                         assert toDelete != null && mtd != null;
-                        if(mtd.getValue().equals(MetadataTags.ColumnDrop_PermanentDropp)){
+                        
+                        if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
                         	cfm.removeColumnDefinition(toDelete);
                         }
-                        break;
                 }
                 
                 break;

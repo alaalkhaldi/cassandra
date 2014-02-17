@@ -20,15 +20,16 @@ public class MetadataTags {
 	 private static final Logger logger = LoggerFactory.getLogger(MetadataTags.class);
 	 
 	 public static final ByteBuffer ColumnDrop_Tag = ByteBufferUtil.bytes("column_drop_tag");
-	 public static final String ColumnDrop_Dropped = "dropped";
-	 public static final String ColumnDrop_PermanentDropp = "permanent_drop";
+	 public static final ByteBuffer ColumnDrop_Dropped = ByteBufferUtil.bytes("dropped");
+	 public static final ByteBuffer ColumnDrop_PermanentDropp = ByteBufferUtil.bytes("permanent_drop");
 	 
 	 private ByteBuffer tag;
+	 private ByteBuffer value;
+	 private ByteBuffer createdAt;
 	 private String targetObject;
-	 private String value;
 	 
 	 public MetadataTags(ByteBuffer tag, String... targetObjects){
-		 this.tag = tag;
+		 this.tag = ColumnDrop_Tag; //tag;
 		 
 		 assert targetObjects.length > 0;
 		 this.targetObject = targetObjects[0];
@@ -36,48 +37,54 @@ public class MetadataTags {
 			 this.targetObject += "." + targetObjects[idx];
 		 }
 		 
-		 value = generateValue();
+		 ColumnFamily cf = queryTag();
+		 
+		 value = generateValue(cf);
+		 createdAt = generateCreatedAt(cf);
 	 }
 	 
-	 public String getValue(){ return value; }
+	 public ByteBuffer getTag(){ return tag; }
+	 public ByteBuffer getValue(){ return value; }
+	 public ByteBuffer getCreatedAt(){ return createdAt; }
 	 
-	 private String generateValue(){
-		 String value = "";
-		 
+	 private ByteBuffer generateValue(ColumnFamily cf){
+		 ByteBuffer value = null;
 		 if(tag.equals(ColumnDrop_Tag)){	
-			ColumnFamily cf = queryTag();
 			if (cf != null) {
-				try{
 				assert cf.getColumnCount() == 1;
-				ByteBuffer colValue;
-				colValue = cf.getColumn(Column.decomposeName(targetObject, "value")).value();
-				if( !colValue.equals(ByteBufferUtil.bytes(ColumnDrop_Dropped)) ) throw new Exception();
-				value = ColumnDrop_Dropped;
-				}catch(Exception ex){
-					value = "";
-				}
+				value = cf.getColumn(Column.decomposeName(targetObject, "value")).value();
 			} 
 		 }
-		 
 		 return value;
+	 }
+	 
+	 private ByteBuffer generateCreatedAt(ColumnFamily cf){
+		 ByteBuffer createdAt = null;
+		 if(tag.equals(ColumnDrop_Tag)){	
+			if (cf != null) {
+				assert cf.getColumnCount() == 1;
+				createdAt = cf.getColumn(Column.decomposeName(targetObject, "created_at")).value();
+			} 
+		 }
+		 return createdAt;
 	 }
 		
 	 private RowMutation addTag(long timestamp)
 	 {
         RowMutation rm = new RowMutation(Table.SYSTEM_KS, tag);  // row key
-        ByteBuffer createdAt = LongType.instance.decompose(timestamp / 1000);
+        createdAt = LongType.instance.decompose(timestamp / 1000);
  
         ColumnFamily cf = rm.addOrGet(CFMetaData.MetadataTagsCf);
        
         cf.addColumn(Column.create("", timestamp, targetObject, ""));
         
         if(tag.equals(ColumnDrop_Tag)){
-        	if(value.equals("")){
+        	if(value == null){
         		value = ColumnDrop_Dropped;
         	}else if(value.equals(ColumnDrop_Dropped)){
         		value = ColumnDrop_PermanentDropp;
         	}else{
-        		assert false; // through some meaningful error
+        		value = ColumnDrop_Dropped;
         	}
         }
         
@@ -89,7 +96,7 @@ public class MetadataTags {
 	 
 	 private RowMutation dropTag(long timestamp)
 	 {
-        RowMutation rm = new RowMutation(Table.SYSTEM_KS, ColumnDrop_Tag);  // row key
+        RowMutation rm = new RowMutation(Table.SYSTEM_KS, tag);  // row key
  
         ColumnFamily cf = rm.addOrGet(CFMetaData.MetadataTagsCf);
         int ldt = (int) (System.currentTimeMillis() / 1000);
@@ -104,9 +111,9 @@ public class MetadataTags {
 	 private ColumnFamily queryTag(){
 		 Table table = Table.open(Table.SYSTEM_KS);
          QueryFilter filter = QueryFilter.getSliceFilter( 
-        		 StorageService.getPartitioner().decorateKey(ColumnDrop_Tag),
+        		 StorageService.getPartitioner().decorateKey(tag),
         		 new QueryPath(SystemTable.MetadataTags_CF),
-             	 Column.decomposeName(targetObject, "value"),
+             	 Column.decomposeName(targetObject, "created_at"),
              	 Column.decomposeName(targetObject, "value"),
              	 false,
              	 Integer.MAX_VALUE);
