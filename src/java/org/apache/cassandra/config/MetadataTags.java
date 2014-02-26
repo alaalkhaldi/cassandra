@@ -28,8 +28,13 @@ public class MetadataTags {
 	 private ByteBuffer createdAt;
 	 private String targetObject;
 	 
+	 public ByteBuffer getTag(){ return tag; }
+	 public ByteBuffer getValue(){ return value; }
+	 public ByteBuffer getCreatedAt(){ return createdAt; }
+	 public String getTargetObject(){return targetObject; }
+	 
 	 public MetadataTags(ByteBuffer tag, String... targetObjects){
-		 this.tag = ColumnDrop_Tag; //tag;
+		 this.tag = tag;
 		 
 		 assert targetObjects.length > 0;
 		 this.targetObject = targetObjects[0];
@@ -42,34 +47,8 @@ public class MetadataTags {
 		 value = generateValue(cf);
 		 createdAt = generateCreatedAt(cf);
 	 }
-	 
-	 public ByteBuffer getTag(){ return tag; }
-	 public ByteBuffer getValue(){ return value; }
-	 public ByteBuffer getCreatedAt(){ return createdAt; }
-	 
-	 private ByteBuffer generateValue(ColumnFamily cf){
-		 ByteBuffer value = null;
-		 if(tag.equals(ColumnDrop_Tag)){	
-			if (cf != null) {
-				assert cf.getColumnCount() == 1;
-				value = cf.getColumn(Column.decomposeName(targetObject, "value")).value();
-			} 
-		 }
-		 return value;
-	 }
-	 
-	 private ByteBuffer generateCreatedAt(ColumnFamily cf){
-		 ByteBuffer createdAt = null;
-		 if(tag.equals(ColumnDrop_Tag)){	
-			if (cf != null) {
-				assert cf.getColumnCount() == 1;
-				createdAt = cf.getColumn(Column.decomposeName(targetObject, "created_at")).value();
-			} 
-		 }
-		 return createdAt;
-	 }
-		
-	 private RowMutation addTag(long timestamp)
+	 	 	
+	 public RowMutation addTag(long timestamp)
 	 {
         RowMutation rm = new RowMutation(Table.SYSTEM_KS, tag);  // row key
         createdAt = LongType.instance.decompose(timestamp / 1000);
@@ -94,7 +73,7 @@ public class MetadataTags {
         return rm;
 	 }
 	 
-	 private RowMutation dropTag(long timestamp)
+	 public RowMutation dropTag(long timestamp)
 	 {
         RowMutation rm = new RowMutation(Table.SYSTEM_KS, tag);  // row key
  
@@ -120,13 +99,25 @@ public class MetadataTags {
         return table.getColumnFamilyStore(SystemTable.MetadataTags_CF).getColumnFamily(filter);
 	 }
 	 
-	 public RowMutation toSchemaUpdate(MetadataTags newState, long modificationTimestamp)
-	 {
-		 return newState.addTag(modificationTimestamp);
+	 private ByteBuffer generateValue(ColumnFamily cf){
+		 ByteBuffer value = null;
+		 if(tag.equals(ColumnDrop_Tag)){	
+			if (cf != null) {
+				//assert cf.getColumnCount() == 1;
+				value = cf.getColumn(Column.decomposeName(targetObject, "value")).value();
+			} 
+		 }
+		 return value;
 	 }
 	 
-	 public RowMutation dropFromSchema(MetadataTags newState, long modificationTimestamp)
-	 {
-		 return newState.dropTag(modificationTimestamp);
+	 private ByteBuffer generateCreatedAt(ColumnFamily cf){
+		 ByteBuffer createdAt = null;
+		 if(tag.equals(ColumnDrop_Tag)){	
+			if (cf != null) {
+				//assert cf.getColumnCount() == 1;
+				createdAt = cf.getColumn(Column.decomposeName(targetObject, "created_at")).value();
+			} 
+		 }
+		 return createdAt;
 	 }
 }

@@ -112,6 +112,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
                 if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
 						MigrationManager.announceMetadataTagsDrop(mtd);
+						cfm.removeColumnDrop(columnName.toString());
                 }
 
 				// The original functionality
@@ -210,6 +211,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 	mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
                 	if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
         				MigrationManager.announceMetadataTagsUpdate(mtd);
+        				cfm.recordColumnDrop(columnName.toString(), mtd);	
         				break;
                 	}
                 	else
@@ -230,6 +232,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                                 // Metadata_tag new record                                              
                                 mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
 								MigrationManager.announceMetadataTagsUpdate(mtd);
+								cfm.recordColumnDrop(columnName.toString(), mtd);
                             }
                         }
                         assert toDelete != null && mtd != null;

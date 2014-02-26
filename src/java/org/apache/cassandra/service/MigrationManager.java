@@ -268,7 +268,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         // oldCfm.validateCompatility(cfm);
 
         // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
-    	announce(mdt.toSchemaUpdate(mdt, FBUtilities.timestampMicros()));
+    	announce(mdt.addTag(FBUtilities.timestampMicros()));
     }
     
     public static void announceMetadataTagsDrop(MetadataTags mdt) throws ConfigurationException{
@@ -281,7 +281,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         // oldCfm.validateCompatility(cfm);
 
         // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
-    	announce(mdt.dropFromSchema(mdt, FBUtilities.timestampMicros()));
+    	announce(mdt.dropTag(FBUtilities.timestampMicros()));
     }
 
 

@@ -925,17 +925,24 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
     	if( meta.ksName.equals(Table.SYSTEM_KS))
     		return false;
     	
-    	MetadataTags mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, meta.ksName, meta.cfName, meta.comparator.getString(c.name));
-	    return (mtd.getValue() != null) && mtd.getValue().equals(MetadataTags.ColumnDrop_PermanentDropp) && 
-	    	   (mtd.getCreatedAt() != null) && c.timestamp() <= (LongType.instance.compose(mtd.getCreatedAt()) * 1000);
+		if (meta.getDroppedColumns().isEmpty())
+			return false;
+
+		MetadataTags mtd = meta.getDroppedColumns().get(meta.comparator.getString(c.name));
+		
+		if(mtd == null)
+			return false;
+		
+		return mtd.getValue().equals(MetadataTags.ColumnDrop_PermanentDropp)
+			   && (mtd.getCreatedAt() != null)
+			   && c.timestamp() <= (LongType.instance.compose(mtd.getCreatedAt()) * 1000);
     }
 
     private void removeDroppedColumns(ColumnFamily cf)
     {
-    	// we don't want to check for system KS
-        if (cf == null || metadata.ksName.equals(Table.SYSTEM_KS))
-            return;
-        
+    	if (cf == null)
+			return;
+    		 
         Iterator<IColumn> iter = cf.iterator();
         while (iter.hasNext())
             if (isDroppedColumn((Column)iter.next(), metadata))
@@ -1536,6 +1543,8 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 Row rawRow = rowIterator.next();
                 total++;
                 ColumnFamily data = rawRow.cf;
+                
+                //ColumnFamily metadataCF = MetadataTags.queryColumnFamily("");
 
                 if (rowIterator.needsFiltering())
                 {

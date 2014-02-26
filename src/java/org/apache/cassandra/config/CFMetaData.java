@@ -278,6 +278,7 @@ public final class CFMetaData
     private volatile Double bloomFilterFpChance = null;
     private volatile Caching caching = DEFAULT_CACHING_STRATEGY;
     private volatile boolean populateIoCacheOnFlush = DEFAULT_POPULATE_IO_CACHE_ON_FLUSH;
+    private volatile Map<String, MetadataTags> droppedColumns = new HashMap<String, MetadataTags>();
 
     volatile Map<ByteBuffer, ColumnDefinition> column_metadata = new HashMap<ByteBuffer,ColumnDefinition>();
     public volatile Class<? extends AbstractCompactionStrategy> compactionStrategyClass = DEFAULT_COMPACTION_STRATEGY_CLASS;
@@ -309,6 +310,7 @@ public final class CFMetaData
     public CFMetaData bloomFilterFpChance(Double prop) {bloomFilterFpChance = prop; return this;}
     public CFMetaData caching(Caching prop) {caching = prop; return this;}
     public CFMetaData populateIoCacheOnFlush(boolean prop) {populateIoCacheOnFlush = prop; return this;}
+    public CFMetaData droppedColumns(Map<String, MetadataTags> cols) {droppedColumns = cols; return this;}
 
     public CFMetaData(String keyspace, String name, ColumnFamilyType type, AbstractType<?> comp, AbstractType<?> subcc)
     {
@@ -458,7 +460,8 @@ public final class CFMetaData
                       .compressionParameters(oldCFMD.compressionParameters)
                       .bloomFilterFpChance(oldCFMD.bloomFilterFpChance)
                       .caching(oldCFMD.caching)
-                      .populateIoCacheOnFlush(oldCFMD.populateIoCacheOnFlush);
+                      .populateIoCacheOnFlush(oldCFMD.populateIoCacheOnFlush)
+                      .droppedColumns(oldCFMD.droppedColumns);
     }
 
     /**
@@ -588,6 +591,11 @@ public final class CFMetaData
     {
         return caching;
     }
+    
+    public Map<String, MetadataTags> getDroppedColumns()
+    {
+           return droppedColumns;
+    }
 
     public boolean equals(Object obj)
     {
@@ -627,6 +635,7 @@ public final class CFMetaData
             .append(bloomFilterFpChance, rhs.bloomFilterFpChance)
             .append(caching, rhs.caching)
             .append(populateIoCacheOnFlush, rhs.populateIoCacheOnFlush)
+            .append(droppedColumns, rhs.droppedColumns)
             .isEquals();
     }
 
@@ -658,6 +667,7 @@ public final class CFMetaData
             .append(bloomFilterFpChance)
             .append(caching)
             .append(populateIoCacheOnFlush)
+            .append(droppedColumns)
             .toHashCode();
     }
 
@@ -822,6 +832,9 @@ public final class CFMetaData
         bloomFilterFpChance = cfm.bloomFilterFpChance;
         caching = cfm.caching;
         populateIoCacheOnFlush = cfm.populateIoCacheOnFlush;
+        
+        if (!cfm.droppedColumns.isEmpty())
+        	 droppedColumns = cfm.droppedColumns;
 
         MapDifference<ByteBuffer, ColumnDefinition> columnDiff = Maps.difference(column_metadata, cfm.column_metadata);
         // columns that are no longer needed
@@ -1557,7 +1570,17 @@ public final class CFMetaData
         }
         return false;
     }
-
+    
+    public void recordColumnDrop(String colName, MetadataTags mtd)
+    {
+    	droppedColumns.put(colName, mtd);		
+    }
+    
+    public void removeColumnDrop(String colName)
+    {
+    	droppedColumns.remove(colName);		
+    }
+    
     @Override
     public String toString()
     {
