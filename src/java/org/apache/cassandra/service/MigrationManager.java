@@ -232,7 +232,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         announce(cfm.toSchema(FBUtilities.timestampMicros()));
     }
 
-    public static void announceKeyspaceUpdate(KSMetaData ksm) throws ConfigurationException
+    public static void announceKeyspaceUpdate(KSMetaData ksm, ClientState state) throws ConfigurationException
     {
         ksm.validate();
 
@@ -245,7 +245,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         
         // prepare metadata_log  
         String logValue = ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
-        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, null, logValue);
+        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, state, logValue);
     }
 
     public static void announceColumnFamilyUpdate(CFMetaData cfm) throws ConfigurationException

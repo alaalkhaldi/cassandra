@@ -299,7 +299,7 @@ public class UpdateStatement extends ModificationStatement
                 throw new InvalidRequestException("Unmatched column names/values");
             if (columnNames.isEmpty())
                 throw new InvalidRequestException("No columns provided to INSERT");
-
+            
             for (int i = 0; i < columnNames.size(); i++)
             {
                 CFDefinition.Name name = cfDef.get(columnNames.get(i));

@@ -400,7 +400,7 @@ public class DefsTest extends SchemaLoader
         KSMetaData newBadKs2 = KSMetaData.testMetadata(cf.ksName + "trash", SimpleStrategy.class, KSMetaData.optsWithRF(4));
         try
         {
-            MigrationManager.announceKeyspaceUpdate(newBadKs2);
+            MigrationManager.announceKeyspaceUpdate(newBadKs2, null);
             throw new AssertionError("Should not have been able to update a KS with an invalid KS name.");
         }
         catch (ConfigurationException ex)
@@ -409,7 +409,7 @@ public class DefsTest extends SchemaLoader
         }
 
         KSMetaData newKs = KSMetaData.testMetadata(cf.ksName, OldNetworkTopologyStrategy.class, KSMetaData.optsWithRF(1));
-        MigrationManager.announceKeyspaceUpdate(newKs);
+        MigrationManager.announceKeyspaceUpdate(newKs, null);
 
         KSMetaData newFetchedKs = Schema.instance.getKSMetaData(newKs.name);
         assert newFetchedKs.strategyClass.equals(newKs.strategyClass);

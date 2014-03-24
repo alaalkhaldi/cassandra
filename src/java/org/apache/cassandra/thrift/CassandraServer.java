@@ -1379,7 +1379,7 @@ public class CassandraServer implements Cassandra.Iface
             if (ks_def.getCf_defs() != null && ks_def.getCf_defs().size() > 0)
                 throw new InvalidRequestException("Keyspace update must not contain any column family definitions.");
             
-            MigrationManager.announceKeyspaceUpdate(KSMetaData.fromThrift(ks_def));
+            MigrationManager.announceKeyspaceUpdate(KSMetaData.fromThrift(ks_def), state());
             return Schema.instance.getVersion().toString();
         }
         catch (RequestValidationException e)
