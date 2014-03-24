@@ -90,6 +90,8 @@ public final class KSMetaData
                                                 CFMetaData.SchemaColumnFamiliesCf,
                                                 CFMetaData.SchemaColumnsCf,
                                                 CFMetaData.MetadataTagsCf,
+                                                CFMetaData.MetadataRegistryCf,
+                                                CFMetaData.MetadataLogCf,
                                                 CFMetaData.OldStatusCf,
                                                 CFMetaData.OldHintsCf,
                                                 CFMetaData.OldMigrationsCf,

@@ -18,6 +18,7 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.util.*;
 
 import org.apache.cassandra.cql3.*;
@@ -25,6 +26,7 @@ import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
+import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.Pair;
 
@@ -128,7 +130,7 @@ public class UpdateStatement extends ModificationStatement
 
         Collection<IMutation> mutations = new LinkedList<IMutation>();
         UpdateParameters params = new UpdateParameters(variables, getTimestamp(now), getTimeToLive(), rows);
-
+               
         for (ByteBuffer key: keys)
             mutations.add(mutationForKey(cfDef, key, builder, params, cl));
 
@@ -205,9 +207,10 @@ public class UpdateStatement extends ModificationStatement
      * @return row mutation
      *
      * @throws InvalidRequestException on the wrong request
+     * @throws ConfigurationException 
      */
     private IMutation mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, UpdateParameters params, ConsistencyLevel cl)
-    throws InvalidRequestException
+    throws InvalidRequestException, ConfigurationException
     {
         validateKey(key);
 
@@ -256,6 +259,24 @@ public class UpdateStatement extends ModificationStatement
         {
             for (Operation op : processedColumns)
                 op.execute(key, cf, builder.copy(), params);
+        }      
+        
+        if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
+        	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
+        	String dataTag = itr.next().getString(cf.getComparator());
+        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
+        	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
+        	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
+        	return new RowMutation(cfDef.cfm.ksName, key);
+        	
+        	// Iterating Column Family to get columns
+//        	for( IColumn col: cf.getSortedColumns()){
+//        		String anotherName = col.getString(cf.getComparator());
+//        		String allStr = col.toString();
+//        		String colNam = new String(col.name().array());
+//        		String colVal = new String(col.value().array());
+//        		colVal.toString();
+//        	}
         }
 
         return type == Type.COUNTER ? new CounterMutation(rm, cl) : rm;
@@ -318,7 +339,7 @@ public class UpdateStatement extends ModificationStatement
                 CFDefinition.Name name = cfDef.get(entry.left);
                 if (name == null)
                     throw new InvalidRequestException(String.format("Unknown identifier %s", entry.left));
-
+               
                 Operation operation = entry.right.prepare(name);
                 operation.collectMarkerSpecification(boundNames);
 

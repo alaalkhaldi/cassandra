@@ -296,7 +296,7 @@ public class DefsTest extends SchemaLoader
         store.forceBlockingFlush();
         assert store.directories.sstableLister().list().size() > 0;
 
-        MigrationManager.announceKeyspaceDrop(ks.name);
+        MigrationManager.announceKeyspaceDrop(ks.name, null);
 
         assert Schema.instance.getTableDefinition(ks.name) == null;
 
@@ -343,7 +343,7 @@ public class DefsTest extends SchemaLoader
             rm.add(new QueryPath(cfm.cfName, null, ByteBufferUtil.bytes(("col" + i))), ByteBufferUtil.bytes("anyvalue"), 1L);
         rm.apply();
 
-        MigrationManager.announceKeyspaceDrop(ks.name);
+        MigrationManager.announceKeyspaceDrop(ks.name, null);
 
         assert Schema.instance.getTableDefinition(ks.name) == null;
     }

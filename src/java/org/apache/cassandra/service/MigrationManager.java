@@ -24,13 +24,11 @@ import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
-
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
@@ -44,6 +42,8 @@ import org.apache.cassandra.exceptions.AlreadyExistsException;
 import org.apache.cassandra.exceptions.ConfigurationException;
 import org.apache.cassandra.gms.*;
 import org.apache.cassandra.io.IVersionedSerializer;
+import org.apache.cassandra.metadata.MetadataLog;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -242,6 +242,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 
         logger.info(String.format("Update Keyspace '%s' From %s To %s", ksm.name, oldKsm, ksm));
         announce(oldKsm.toSchemaUpdate(ksm, FBUtilities.timestampMicros()));
+        
+        // prepare metadata_log  
+        String logValue = ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
+        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, null, logValue);
     }
 
     public static void announceColumnFamilyUpdate(CFMetaData cfm) throws ConfigurationException
@@ -259,32 +263,21 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     }
     
     public static void announceMetadataTagsUpdate(MetadataTags mdt) throws ConfigurationException{
-    	//  cfm.validate();
-    	
-    	// CFMetaData oldCfm = Schema.instance.getCFMetaData(cfm.ksName, cfm.cfName);
-        //  if (oldCfm == null)
-        //     throw new ConfigurationException(String.format("Cannot update non existing column family '%s' in keyspace '%s'.", cfm.cfName, cfm.ksName));
-
-        // oldCfm.validateCompatility(cfm);
-
-        // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
-    	announce(mdt.addTag(FBUtilities.timestampMicros()));
+       	announce(mdt.addTag(FBUtilities.timestampMicros()));
     }
     
     public static void announceMetadataTagsDrop(MetadataTags mdt) throws ConfigurationException{
-    	//  cfm.validate();
-    	
-    	// CFMetaData oldCfm = Schema.instance.getCFMetaData(cfm.ksName, cfm.cfName);
-        //  if (oldCfm == null)
-        //     throw new ConfigurationException(String.format("Cannot update non existing column family '%s' in keyspace '%s'.", cfm.cfName, cfm.ksName));
-
-        // oldCfm.validateCompatility(cfm);
-
-        // logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
     	announce(mdt.dropTag(FBUtilities.timestampMicros()));
     }
 
-
+    public static void announceMetadataRegistryUpdate(String target, String dataTag, String AdminTag) throws ConfigurationException{
+    	announce(MetadataRegistry.instance.add(target, dataTag, AdminTag));
+    }
+    
+    public static void announceMetadataRegistryDrop(String target){
+    	announce(MetadataRegistry.instance.drop(target));
+    }
+    
     public static void announceKeyspaceDrop(String ksName) throws ConfigurationException
     {
         KSMetaData oldKsm = Schema.instance.getKSMetaData(ksName);
@@ -293,6 +286,20 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 
         logger.info(String.format("Drop Keyspace '%s'", oldKsm.name));
         announce(oldKsm.dropFromSchema(FBUtilities.timestampMicros()));
+    }
+    
+    public static void announceKeyspaceDrop(String ksName, ClientState state) throws ConfigurationException
+    {
+        KSMetaData oldKsm = Schema.instance.getKSMetaData(ksName);
+        if (oldKsm == null)
+            throw new ConfigurationException(String.format("Cannot drop non existing keyspace '%s'.", ksName));
+
+        logger.info(String.format("Drop Keyspace '%s'", oldKsm.name));
+        announce(oldKsm.dropFromSchema(FBUtilities.timestampMicros()));
+        
+        // prepare metadata_log  
+        String log_value = oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites;
+        annouceMetadataLogMigration(oldKsm.name, MetadataRegistry.DropKeyspace_Tag, state, log_value);
     }
 
     public static void announceColumnFamilyDrop(String ksName, String cfName) throws ConfigurationException
@@ -458,5 +465,12 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
                 size += RowMutation.serializer.serializedSize(rm, version);
             return size;
         }
+    }
+    
+    private static void annouceMetadataLogMigration(String target, String dataTag, ClientState state, String logValue){
+    	String adminTag = MetadataRegistry.instance.query(target, dataTag);
+    	String client = state == null ? "" : state.getUser().getName();
+        if( adminTag != null )
+        	announce(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue));
     }
 }

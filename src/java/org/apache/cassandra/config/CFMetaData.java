@@ -234,7 +234,24 @@ public final class CFMetaData
 														+ "value text,"
 														+ "created_at timestamp,"
 														+ "PRIMARY KEY (tag, target_object)"
-														+ ") WITH COMMENT='metadata tag definitions'");
+														+ ") WITH COMMENT='metadata definitions'");
+    
+    public static final CFMetaData MetadataRegistryCf = compile("CREATE TABLE \"" + SystemTable.MetadataRegistry_CF + "\" ("
+															+ "target text,"
+															+ "data_tag text,"
+															+ "admin_tag text,"
+															+ "PRIMARY KEY (target, data_tag)"
+															+ ") WITH COMMENT='metadata tag registry'");
+    
+    public static final CFMetaData MetadataLogCf = compile("CREATE TABLE \"" + SystemTable.MetadataLog_CF + "\" ("
+															+ "target text,"
+															+ "time text,"
+															+ "client text,"
+															+ "tag text,"
+															+ "value text,"
+															+ "PRIMARY KEY (Target, time, client, tag)"
+															+ ") WITH COMMENT='metadata log'");
+
 
     public enum Caching
     {

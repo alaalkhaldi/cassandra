@@ -25,9 +25,13 @@ import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.ColumnFamily;
 import org.apache.cassandra.db.DeletionInfo;
+import org.apache.cassandra.db.IColumn;
 import org.apache.cassandra.db.RowMutation;
+import org.apache.cassandra.db.SystemTable;
+import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
+import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.thrift.ThriftValidation;
 
 /**
@@ -98,11 +102,12 @@ public class DeleteStatement extends ModificationStatement
     }
 
     public RowMutation mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, boolean isRange, UpdateParameters params)
-    throws InvalidRequestException
+    throws InvalidRequestException, ConfigurationException
     {
         QueryProcessor.validateKey(key);
         RowMutation rm = new RowMutation(cfDef.cfm.ksName, key);
         ColumnFamily cf = rm.addOrGet(cfDef.cfm);
+        boolean rowDelete = true;
 
         if (toRemove.isEmpty() && builder.componentCount() == 0)
         {
@@ -120,6 +125,7 @@ public class DeleteStatement extends ModificationStatement
             }
             else
             {
+            	rowDelete = false;
                 // Delete specific columns
                 if (cfDef.isCompact)
                 {
@@ -132,6 +138,18 @@ public class DeleteStatement extends ModificationStatement
                         op.execute(key, cf, builder.copy(), params);
                 }
             }
+        }
+        
+        if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
+        	if(rowDelete){
+            	MigrationManager.announceMetadataRegistryDrop(new String(key.array()));
+        	}else{
+        		// insert empty adminData
+	        	String dataTag = cf.getSortedColumns().iterator().next().getString(cf.getComparator());
+	        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
+	        	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, ""); 
+        	}
+        	return new RowMutation(cfDef.cfm.ksName, key);
         }
 
         return rm;
