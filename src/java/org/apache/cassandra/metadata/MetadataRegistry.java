@@ -31,6 +31,15 @@ public class MetadataRegistry {
 	public static final String AlterKeyspace_Tag = "a_ks";
 	public static final String DropKeyspace_Tag = "d_ks";
 	
+	public static final String AlterColumnFamily_Alter_Tag = "a_cf_al";
+	public static final String AlterColumnFamily_Add_Tag = "a_cf_ad";
+	public static final String AlterColumnFamily_Drop_Tag = "a_cf_d";
+	public static final String AlterColumnFamily_Rename_Tag = "a_cf_r";
+	public static final String AlterColumnFamily_Prob_Tag = "a_cf_p";
+	public static final String DropColumnFamily_Tag = "d_cf";
+	public static final String TruncateColumnFamily_Tag = "t_cf";
+	
+	
 	private final Map<String, Map<String, String>> registryCache = new HashMap<String, Map<String, String>>();
 	
 	public MetadataRegistry()
@@ -71,7 +80,7 @@ public class MetadataRegistry {
 		// only check the cache
 		if(registryCache.containsKey(target))
 			if(registryCache.get(target).containsKey(dataTag))
-				return registryCache.get(target).get(dataTag);
+				return registryCache.get(target).get(dataTag );
 		
 		return null;
 	}

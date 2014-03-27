@@ -348,7 +348,7 @@ public interface StorageServiceMBean extends NotificationEmitter
      * @param keyspace The keyspace to delete from
      * @param columnFamily The column family to delete data from.
      */
-    public void truncate(String keyspace, String columnFamily)throws TimeoutException, IOException;
+    public void truncate(String keyspace, String columnFamily, String client)throws TimeoutException, IOException;
 
     /**
      * given a list of tokens (representing the nodes in the cluster), returns

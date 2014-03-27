@@ -223,7 +223,7 @@ public class DefsTest extends SchemaLoader
         store.forceBlockingFlush();
         assert store.directories.sstableLister().list().size() > 0;
 
-        MigrationManager.announceColumnFamilyDrop(ks.name, cfm.cfName);
+        MigrationManager.announceColumnFamilyDrop(ks.name, cfm.cfName, null);
 
         assert !Schema.instance.getTableDefinition(ks.name).cfMetaData().containsKey(cfm.cfName);
 

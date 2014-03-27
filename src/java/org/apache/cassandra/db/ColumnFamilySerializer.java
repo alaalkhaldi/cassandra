@@ -71,7 +71,6 @@ public class ColumnFamilySerializer implements IVersionedSerializer<ColumnFamily
             int written = 0;
             for (IColumn column : cf)
             {
-            	String s = ByteBufferUtil.string(column.name());
                 columnSerializer.serialize(column, dos);
                 written++;
             }

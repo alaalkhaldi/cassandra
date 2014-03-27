@@ -19,11 +19,12 @@ package org.apache.cassandra.db;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.io.FSError;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.tracing.Tracing;
 
 public class TruncateVerbHandler implements IVerbHandler<Truncation>
@@ -47,6 +48,11 @@ public class TruncateVerbHandler implements IVerbHandler<Truncation>
             if (FSError.findNested(e) != null)
                 throw FSError.findNested(e);
         }
+        
+        MigrationManager.annouceMetadataLogMigration(t.keyspace + "." + t.columnFamily, 
+        		MetadataRegistry.TruncateColumnFamily_Tag, t.client, "");
+        
+        
         Tracing.trace("Enqueuing response to truncate operation to {}", message.from);
 
         TruncateResponse response = new TruncateResponse(t.keyspace, t.columnFamily, true);

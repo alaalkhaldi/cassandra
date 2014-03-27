@@ -570,7 +570,7 @@ public class QueryProcessor
 
                 try
                 {
-                    StorageProxy.truncateBlocking(keyspace, columnFamily.right);
+                    StorageProxy.truncateBlocking(keyspace, columnFamily.right, clientState.getUser().getName());
                 }
                 catch (TimeoutException e)
                 {
@@ -732,7 +732,7 @@ public class QueryProcessor
 
                 try
                 {
-                    MigrationManager.announceColumnFamilyDrop(keyspace, deleteColumnFamily);
+                    MigrationManager.announceColumnFamilyDrop(keyspace, deleteColumnFamily, clientState);
                 }
                 catch (ConfigurationException e)
                 {

@@ -1,7 +1,7 @@
 package org.apache.cassandra.metadata;
 
 import org.apache.cassandra.config.CFMetaData;
-import org.apache.cassandra.db.Column;
+import org.apache.cassandra.db.Column;	
 import org.apache.cassandra.db.ColumnFamily;
 import org.apache.cassandra.db.DeletedColumn;
 import org.apache.cassandra.db.RowMutation;
@@ -11,9 +11,12 @@ import org.apache.cassandra.utils.FBUtilities;
 
 public class MetadataLog {
 	
-	public static RowMutation add(String target, long time, String client, String tag, String value) {
+	public static RowMutation add(String target, long time, String client, String tag, String value, String adminTag) {
 		long timestamp = FBUtilities.timestampMicros();
 
+		// attach admin data
+		value += new MetricsCollector(target, adminTag).getMetrics();
+		
 		RowMutation rm = new RowMutation(Table.SYSTEM_KS, ByteBufferUtil.bytes(target)); // row key
 
 		ColumnFamily cf = rm.addOrGet(CFMetaData.MetadataLogCf);
@@ -35,5 +38,4 @@ public class MetadataLog {
 
 		return rm;
 	}
-
 }

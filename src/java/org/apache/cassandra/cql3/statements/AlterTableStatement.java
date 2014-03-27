@@ -30,6 +30,7 @@ import java.util.Set;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Sets;
+import com.sun.xml.internal.stream.buffer.AbstractCreator;
 
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
@@ -46,6 +47,7 @@ import org.apache.cassandra.db.filter.QueryFilter;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.service.StorageService;
@@ -90,6 +92,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
         CFDefinition cfDef = meta.getCfDef();
         CFDefinition.Name name = columnName == null ? null : cfDef.get(columnName);
         MetadataTags mtd;
+        String logValue = "";
         		
         switch (oType)
         {
@@ -145,15 +148,23 @@ public class AlterTableStatement extends SchemaAlteringStatement
                                                              null,
                                                              null,
                                                              componentIndex));
+                
+                logValue = "column_name=" + columnName.toString() + "," + "cql_type=" + type.asCQL3Type().toString();
+                MigrationManager.annouceMetadataLogMigration(keyspace() + "." + columnFamily(),
+                		MetadataRegistry.AlterColumnFamily_Add_Tag, clientState.getUser().getName(), logValue);
                 break;
 
             case ALTER:
+            	
+            	AbstractType<?> oldType = cfm.getDefaultValidator();
+            	
                 if (name == null)
                     throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
 
                 switch (name.kind)
                 {
                     case KEY_ALIAS:
+                    	oldType = cfm.getKeyValidator();
                         AbstractType<?> newType = validator.getType();
                         if (newType instanceof CounterColumnType)
                             throw new InvalidRequestException(String.format("counter type is not supported for PRIMARY KEY part %s", columnName));
@@ -170,11 +181,13 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         break;
                     case COLUMN_ALIAS:
                         assert cfDef.isComposite;
+                        oldType = ((CompositeType) cfm.comparator).types.get(name.position);
                         List<AbstractType<?>> newTypes = new ArrayList<AbstractType<?>>(((CompositeType) cfm.comparator).types);
                         newTypes.set(name.position, validator.getType());
                         cfm.comparator = CompositeType.getInstance(newTypes);
                         break;
                     case VALUE_ALIAS:
+                    	oldType = cfm.getDefaultValidator();
                         // See below
                         if (!validator.getType().isCompatibleWith(cfm.getDefaultValidator()))
                             throw new ConfigurationException(String.format("Cannot change %s from type %s to type %s: types are incompatible.",
@@ -194,10 +207,19 @@ public class AlterTableStatement extends SchemaAlteringStatement
                                                                            column.getValidator().asCQL3Type(),
                                                                            validator));
 
+                        oldType = column.getValidator();
+                        
                         column.setValidator(validator.getType());
                         cfm.addColumnDefinition(column);
                         break;
                 }
+                
+                logValue = "Old: " + "column_name=" + columnName.toString() + "," + "cql_type=" + oldType.asCQL3Type().toString() + ";" +
+                		   "New: " + "column_name=" + columnName.toString() + "," + "cql_type=" + validator.getType().asCQL3Type().toString();
+                
+                MigrationManager.annouceMetadataLogMigration(keyspace() + "." + columnFamily(),
+                		MetadataRegistry.AlterColumnFamily_Alter_Tag, clientState.getUser().getName(), logValue);
+                
                 break;
 
             case DROP:
@@ -242,6 +264,10 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         }
                 }
                 
+                logValue = "column_name=" + columnName.toString();
+	            MigrationManager.annouceMetadataLogMigration(keyspace() + "." + columnFamily(),
+	             		MetadataRegistry.AlterColumnFamily_Drop_Tag, clientState.getUser().getName(), logValue);
+                
                 break;
             case OPTS:
                 if (cfProps == null)
@@ -249,9 +275,15 @@ public class AlterTableStatement extends SchemaAlteringStatement
 
                 cfProps.validate();
                 cfProps.applyToCFMetadata(cfm);
+                
+                //TODO: fix the format and add old value
+                logValue = "New: " + cfProps.toString();
+	            MigrationManager.annouceMetadataLogMigration(keyspace() + "." + columnFamily(),
+	             		MetadataRegistry.AlterColumnFamily_Prob_Tag, clientState.getUser().getName(), logValue);
+	            
                 break;
             case RENAME:
-
+         
                 if (cfm.getKeyAliases().size() < cfDef.keys.size() && !renamesAllAliases(cfDef, renames.keySet(), CFDefinition.Name.Kind.KEY_ALIAS, cfDef.keys.size()))
                     throw new InvalidRequestException("When upgrading from Thrift, all the columns of the (composite) partition key must be renamed together.");
                 if (cfm.getColumnAliases().size() < cfDef.columns.size() && !renamesAllAliases(cfDef, renames.keySet(), CFDefinition.Name.Kind.COLUMN_ALIAS, cfDef.columns.size()))
@@ -268,6 +300,8 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     if (exists != null)
                         throw new InvalidRequestException(String.format("Cannot rename column %s in table %s to %s; another column of that name already exist", from, columnFamily(), to));
 
+                    logValue += "from: " + from.name.toString() + ", to: " + to.toString() + "; " ;
+                    		
                     switch (from.kind)
                     {
                         case KEY_ALIAS:
@@ -283,6 +317,10 @@ public class AlterTableStatement extends SchemaAlteringStatement
                             throw new InvalidRequestException(String.format("Cannot rename non PRIMARY KEY part %s", from));
                     }
                 }
+                
+	            MigrationManager.annouceMetadataLogMigration(keyspace() + "." + columnFamily(),
+	             		MetadataRegistry.AlterColumnFamily_Rename_Tag, clientState.getUser().getName(), logValue);
+	            
                 break;
         }
 

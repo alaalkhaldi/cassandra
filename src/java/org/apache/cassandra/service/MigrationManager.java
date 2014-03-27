@@ -244,8 +244,9 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         announce(oldKsm.toSchemaUpdate(ksm, FBUtilities.timestampMicros()));
         
         // prepare metadata_log  
-        String logValue = ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
-        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, state, logValue);
+        String logValue = "Old: " + oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites + ";" +
+        		"New: " + ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
+        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, state.getUser().getName(), logValue);
     }
 
     public static void announceColumnFamilyUpdate(CFMetaData cfm) throws ConfigurationException
@@ -277,17 +278,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     public static void announceMetadataRegistryDrop(String target){
     	announce(MetadataRegistry.instance.drop(target));
     }
-    
-    public static void announceKeyspaceDrop(String ksName) throws ConfigurationException
-    {
-        KSMetaData oldKsm = Schema.instance.getKSMetaData(ksName);
-        if (oldKsm == null)
-            throw new ConfigurationException(String.format("Cannot drop non existing keyspace '%s'.", ksName));
-
-        logger.info(String.format("Drop Keyspace '%s'", oldKsm.name));
-        announce(oldKsm.dropFromSchema(FBUtilities.timestampMicros()));
-    }
-    
+       
     public static void announceKeyspaceDrop(String ksName, ClientState state) throws ConfigurationException
     {
         KSMetaData oldKsm = Schema.instance.getKSMetaData(ksName);
@@ -299,10 +290,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         
         // prepare metadata_log  
         String log_value = oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites;
-        annouceMetadataLogMigration(oldKsm.name, MetadataRegistry.DropKeyspace_Tag, state, log_value);
+        annouceMetadataLogMigration(oldKsm.name, MetadataRegistry.DropKeyspace_Tag, state.getUser().getName(), log_value);
     }
 
-    public static void announceColumnFamilyDrop(String ksName, String cfName) throws ConfigurationException
+    public static void announceColumnFamilyDrop(String ksName, String cfName, ClientState state) throws ConfigurationException
     {
         CFMetaData oldCfm = Schema.instance.getCFMetaData(ksName, cfName);
         if (oldCfm == null)
@@ -310,6 +301,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 
         logger.info(String.format("Drop ColumnFamily '%s/%s'", oldCfm.ksName, oldCfm.cfName));
         announce(oldCfm.dropFromSchema(FBUtilities.timestampMicros()));
+        
+        // prepare metadata_log  
+        String log_value = "";
+        annouceMetadataLogMigration(oldCfm.ksName + "." + oldCfm.cfName, MetadataRegistry.DropColumnFamily_Tag, state.getUser().getName(), log_value);
     }
 
     /**
@@ -467,10 +462,13 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         }
     }
     
-    private static void annouceMetadataLogMigration(String target, String dataTag, ClientState state, String logValue){
+    public static void annouceMetadataLogMigration(String target, String dataTag, String client, String logValue){
+    	
+    	// filter the announcement before writing to Metadata_log
     	String adminTag = MetadataRegistry.instance.query(target, dataTag);
-    	String client = state == null ? "" : state.getUser().getName();
-        if( adminTag != null )
-        	announce(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue));
+    	if(adminTag == null) return;
+    	
+    	if(client == null) client = "";
+        announce(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, adminTag));
     }
 }
