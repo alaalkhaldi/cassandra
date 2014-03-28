@@ -26,6 +26,7 @@ import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.Pair;
@@ -200,7 +201,7 @@ public class UpdateStatement extends ModificationStatement
         }
         return keys;
     }
-
+    
     /**
      * Compute a row mutation for a single key
      *
@@ -214,7 +215,7 @@ public class UpdateStatement extends ModificationStatement
     {
         validateKey(key);
 
-        QueryProcessor.validateKey(key);
+        QueryProcessor.validateKey(key);	
         RowMutation rm = new RowMutation(cfDef.cfm.ksName, key);
         ColumnFamily cf = rm.addOrGet(cfDef.cfm);
 
@@ -268,18 +269,63 @@ public class UpdateStatement extends ModificationStatement
         	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
         	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
         	return new RowMutation(cfDef.cfm.ksName, key);
-        	
-        	// Iterating Column Family to get columns
-//        	for( IColumn col: cf.getSortedColumns()){
-//        		String anotherName = col.getString(cf.getComparator());
-//        		String allStr = col.toString();
-//        		String colNam = new String(col.name().array());
-//        		String colVal = new String(col.value().array());
-//        		colVal.toString();
-//        	}
+        }
+        else{
+        	String dataTag = (operations == null)? MetadataRegistry.Insert_Tag : MetadataRegistry.Update_Tag;
+        	announceMetadataLogMigration(cfDef, key, cf, dataTag);
         }
 
         return type == Type.COUNTER ? new CounterMutation(rm, cl) : rm;
+    }
+    
+    
+    private void announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    	
+    	String partitioningKeyName = "";	
+		try {
+			if (cfDef.hasCompositeKey) {
+				for (int i = 0; i < cfDef.keys.size(); i++) {
+					ByteBuffer bb = CompositeType.extractComponent(key, i);
+					if (i != 0) partitioningKeyName += ".";
+					partitioningKeyName += ByteBufferUtil.string(bb);
+				}
+			} else {
+				partitioningKeyName = ByteBufferUtil.string(key);
+			}
+		} catch (CharacterCodingException e) {
+			return;
+		}
+			
+    	// Iterating Column Family to get columns
+    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
+    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
+    	String allValues = ""; 
+    	
+    	for( IColumn col: cf.getSortedColumns()){
+    		String colName = col.getString(cf.getComparator());
+
+    		// filter column markers
+    		if(colName.indexOf("::") != -1)
+    			continue;
+    		
+    		int colNameBoundary = colName.indexOf("false");
+    		if(colNameBoundary == -1) 
+    			colNameBoundary = colName.indexOf("true");
+
+    		colName = colName.substring(0, colNameBoundary-1);
+    		colName = colName.replace(':', '.');
+    		
+    		String colVal = new String(col.value().array());
+    		
+    		if(!colName.equals("")){
+        		allValues +=  colName + "=" + colVal + ";";
+        		targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
+    		}
+    	}
+    	targets.add( Pair.create(partitioningKeyName, allValues));
+    	
+    	String client = (clientState == null)? null :  clientState.getUser().getName();
+    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 
     public ParsedStatement.Prepared prepare(ColumnSpecification[] boundNames) throws InvalidRequestException

@@ -48,6 +48,7 @@ import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.utils.Pair;
 import org.apache.cassandra.utils.UUIDGen;
 import org.apache.cassandra.utils.WrappedRunnable;
 
@@ -246,7 +247,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         // prepare metadata_log  
         String logValue = "Old: " + oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites + ";" +
         		"New: " + ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
-        annouceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, state.getUser().getName(), logValue);
+        announceMetadataLogMigration(ksm.name, MetadataRegistry.AlterKeyspace_Tag, state, logValue);
     }
 
     public static void announceColumnFamilyUpdate(CFMetaData cfm) throws ConfigurationException
@@ -290,7 +291,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         
         // prepare metadata_log  
         String log_value = oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites;
-        annouceMetadataLogMigration(oldKsm.name, MetadataRegistry.DropKeyspace_Tag, state.getUser().getName(), log_value);
+        announceMetadataLogMigration(oldKsm.name, MetadataRegistry.DropKeyspace_Tag, state, log_value);
     }
 
     public static void announceColumnFamilyDrop(String ksName, String cfName, ClientState state) throws ConfigurationException
@@ -304,7 +305,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         
         // prepare metadata_log  
         String log_value = "";
-        annouceMetadataLogMigration(oldCfm.ksName + "." + oldCfm.cfName, MetadataRegistry.DropColumnFamily_Tag, state.getUser().getName(), log_value);
+        announceMetadataLogMigration(oldCfm.ksName + "." + oldCfm.cfName, MetadataRegistry.DropColumnFamily_Tag, state, log_value);
     }
 
     /**
@@ -462,7 +463,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         }
     }
     
-    public static void annouceMetadataLogMigration(String target, String dataTag, String client, String logValue){
+    public static void announceMetadataLogMigration(String target, String dataTag, String client, String logValue){
     	
     	// filter the announcement before writing to Metadata_log
     	String adminTag = MetadataRegistry.instance.query(target, dataTag);
@@ -470,5 +471,26 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     	
     	if(client == null) client = "";
         announce(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, adminTag));
+    }
+    
+    public static void announceMetadataLogMigration(String target, String dataTag, ClientState clientstate, String logValue){
+    	
+    	// filter the announcement before writing to Metadata_log
+    	String adminTag = MetadataRegistry.instance.query(target, dataTag);
+    	if(adminTag == null) return;
+    	
+    	String client = (clientstate == null)? "" : clientstate.getUser().getName();
+        announce(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, adminTag));
+    }
+    
+    public static void announceMetadataLogMigration(ArrayList<Pair<String,String>>targets, String dataTag, String client){
+    	
+    	if(client == null) client = "";
+    	
+    	for(Pair<String,String> target: targets){
+    		String adminTag = MetadataRegistry.instance.query(target.left, dataTag);
+        	if(adminTag == null)  continue;
+        	announce(MetadataLog.add(target.left, FBUtilities.timestampMicros(), client, dataTag, target.right, adminTag));
+    	}
     }
 }

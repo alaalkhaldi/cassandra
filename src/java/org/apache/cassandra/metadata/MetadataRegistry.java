@@ -39,7 +39,10 @@ public class MetadataRegistry {
 	public static final String DropColumnFamily_Tag = "d_cf";
 	public static final String TruncateColumnFamily_Tag = "t_cf";
 	
-	
+	public static final String Insert_Tag = "i_r";
+	public static final String Update_Tag = "u_r";
+	public static final String delete_Tag = "d_r";
+		
 	private final Map<String, Map<String, String>> registryCache = new HashMap<String, Map<String, String>>();
 	
 	public MetadataRegistry()

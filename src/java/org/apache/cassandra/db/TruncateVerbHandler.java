@@ -49,7 +49,7 @@ public class TruncateVerbHandler implements IVerbHandler<Truncation>
                 throw FSError.findNested(e);
         }
         
-        MigrationManager.annouceMetadataLogMigration(t.keyspace + "." + t.columnFamily, 
+        MigrationManager.announceMetadataLogMigration(t.keyspace + "." + t.columnFamily, 
         		MetadataRegistry.TruncateColumnFamily_Tag, t.client, "");
         
         
