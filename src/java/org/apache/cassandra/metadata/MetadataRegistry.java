@@ -102,7 +102,7 @@ public class MetadataRegistry {
 	}
 	 
 	// Cache functions
-	private void writeToCache(String target, String dataTag, String adminTag){
+	public void writeToCache(String target, String dataTag, String adminTag){
 		if(registryCache.containsKey(target)){
 			registryCache.get(target).put(dataTag, adminTag);
 		}
@@ -113,7 +113,7 @@ public class MetadataRegistry {
 		}
 	}
 	
-	private void deleteFromCache(String target){
+	public void deleteFromCache(String target){
 		if(registryCache.containsKey(target)) 
 			registryCache.remove(target);
 	}

@@ -41,6 +41,7 @@ import org.apache.cassandra.db.marshal.AsciiType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.migration.avro.KsDef;
 import org.apache.cassandra.exceptions.ConfigurationException;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -338,8 +339,23 @@ public class DefsTable
         Map<DecoratedKey, ColumnFamily> oldKeyspaces = SystemTable.getSchema(SystemTable.SCHEMA_KEYSPACES_CF);
         Map<DecoratedKey, ColumnFamily> oldColumnFamilies = SystemTable.getSchema(SystemTable.SCHEMA_COLUMNFAMILIES_CF);
 
-        for (RowMutation mutation : mutations)
+        for (RowMutation mutation : mutations){
             mutation.apply();
+            
+            ColumnFamily cf = mutation.getColumnFamily(Schema.instance.getCFMetaData("system", "metadata_registry").cfId);           
+            if(cf != null ){
+            	if(cf.getSortedColumns().size() == 0){
+            		MetadataRegistry.instance.deleteFromCache(new String(mutation.key().array()));
+            	}else{
+            		// insertion
+	            	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
+	            	String dataTag = itr.next().getString(cf.getComparator());
+	            	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
+	            	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
+	            	MetadataRegistry.instance.writeToCache(new String(mutation.key().array()), dataTag, adminTag);
+            	}
+            }    
+        }
 
         // Must be called after each schema pull and not just on startup to guarantee the migration.
         // See CASSANDRA-5800 comments for the details.
