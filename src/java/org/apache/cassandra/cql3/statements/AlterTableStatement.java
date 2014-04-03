@@ -18,11 +18,7 @@
 package org.apache.cassandra.cql3.statements;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,29 +26,18 @@ import java.util.Set;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.Sets;
-import com.sun.xml.internal.stream.buffer.AbstractCreator;
 
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
 import org.apache.cassandra.config.MetadataTags;
 import org.apache.cassandra.cql3.*;
-import org.apache.cassandra.db.Column;
-import org.apache.cassandra.db.ColumnFamily;
-import org.apache.cassandra.db.DefsTable;
-import org.apache.cassandra.db.IColumn;
-import org.apache.cassandra.db.SystemTable;
-import org.apache.cassandra.db.Table;
-import org.apache.cassandra.db.filter.QueryFilter;
-import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
 import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.MigrationManager;
-import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.transport.messages.ResultMessage;
-import org.apache.cassandra.utils.ByteBufferUtil;
 
 import static org.apache.cassandra.thrift.ThriftValidation.validateColumnFamily;
 
