@@ -22,31 +22,35 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
 
 import com.google.common.base.Function;
 import com.google.common.collect.*;
+
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import org.apache.cassandra.concurrent.Stage;
 import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.config.ReadRepairDecision;
 import org.apache.cassandra.config.Schema;
+import org.apache.cassandra.cql3.CFDefinition;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.filter.ColumnSlice;
 import org.apache.cassandra.db.filter.IDiskAtomFilter;
 import org.apache.cassandra.db.filter.QueryPath;
 import org.apache.cassandra.db.filter.SliceQueryFilter;
+import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.db.marshal.UUIDType;
 import org.apache.cassandra.dht.AbstractBounds;
 import org.apache.cassandra.dht.Bounds;
@@ -59,6 +63,7 @@ import org.apache.cassandra.io.util.FastByteArrayOutputStream;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.TokenMetadata;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.metrics.ClientRequestMetrics;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.net.*;
@@ -190,6 +195,28 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
+                    
+                    for( ColumnFamily cf : ((RowMutation)mutation).getColumnFamilies()){
+                    	CFDefinition cfDef = cf.metadata().getCfDef();
+		                if(cf.getSortedColumns().size() == 0){
+                    		announceMetadataLogDeleteMigration(cfDef, mutation.key(), cf, MetadataRegistry.delete_Tag);
+                    	}else{
+                    		
+                    		 if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
+                    	        	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
+                    	        	String dataTag = itr.next().getString(cf.getComparator());
+                    	        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
+                    	        	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
+                    	        	try{
+                    	        		MigrationManager.announceMetadataRegistryUpdate(new String(mutation.key().array()), dataTag, adminTag);
+                    	        	}catch(Exception e){
+                    	        		
+                    	        	}
+                    	     }else{
+                    	    	 announceMetadataLogInsertMigration(cfDef, mutation.key(), cf, MetadataRegistry.Insert_Tag);
+                    	     }
+                    	}        
+                    }
                 }
             }
 
@@ -229,6 +256,103 @@ public class StorageProxy implements StorageProxyMBean
         {
             writeMetrics.addNano(System.nanoTime() - startTime);
         }
+    }
+    
+    private static void announceMetadataLogInsertMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    	
+    	String partitioningKeyName = "";	
+		try {
+			if (cfDef.hasCompositeKey) {
+				for (int i = 0; i < cfDef.keys.size(); i++) {
+					ByteBuffer bb = CompositeType.extractComponent(key, i);
+					if (i != 0) partitioningKeyName += ".";
+					partitioningKeyName += ByteBufferUtil.string(bb);
+				}
+			} else {
+				partitioningKeyName = ByteBufferUtil.string(key);
+			}
+		} catch (CharacterCodingException e) {
+			return;
+		}
+			
+    	// Iterating Column Family to get columns
+    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
+    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
+    	String allValues = ""; 
+    	
+    	for( IColumn col: cf.getSortedColumns()){
+    		String colName = col.getString(cf.getComparator());
+
+    		// filter column markers
+    		if(colName.indexOf("::") != -1)
+    			continue;
+    		
+    		int colNameBoundary = colName.indexOf("false");
+    		if(colNameBoundary == -1) 
+    			colNameBoundary = colName.indexOf("true");
+
+    		colName = colName.substring(0, colNameBoundary-1);
+    		colName = colName.replace(':', '.');
+    		
+    		String colVal = new String(col.value().array());
+    		
+    		if(!colName.equals("")){
+        		allValues +=  colName + "=" ; //+ colVal + ";";
+        		targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
+    		}
+    	}
+    	targets.add( Pair.create(partitioningKeyName, allValues));
+    	
+    	String client =  null;
+    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
+    }
+
+    private static void announceMetadataLogDeleteMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    	
+    	String partitioningKeyName = "";	
+		try {
+			if (cfDef.hasCompositeKey) {
+				for (int i = 0; i < cfDef.keys.size(); i++) {
+					ByteBuffer bb = CompositeType.extractComponent(key, i);
+					if (i != 0) partitioningKeyName += ".";
+					partitioningKeyName += ByteBufferUtil.string(bb);
+				}
+			} else {
+				partitioningKeyName = ByteBufferUtil.string(key);
+			}
+		} catch (CharacterCodingException e) {
+			return;
+		}
+			
+    	// Iterating Column Family to get columns
+    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
+    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
+    	String allValues = ""; 
+    	
+    	for( IColumn col: cf.getSortedColumns()){
+    		String colName = col.getString(cf.getComparator());
+
+    		// filter column markers
+    		if(colName.indexOf("::") != -1)
+    			continue;
+    		
+    		int colNameBoundary = colName.indexOf("false");
+    		if(colNameBoundary == -1) 
+    			colNameBoundary = colName.indexOf("true");
+
+    		colName = colName.substring(0, colNameBoundary-1);
+    		colName = colName.replace(':', '.');
+    		   		
+    		// insert empty values
+    		if(!colName.equals("")){
+        		allValues +=  colName + ";";
+        		targets.add( Pair.create(partitioningKeyName + "." + colName, ""));
+    		}
+    	}
+    	targets.add( Pair.create(partitioningKeyName, allValues));
+    	
+    	String client = null;
+    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 
     /**
