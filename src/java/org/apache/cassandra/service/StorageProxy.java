@@ -195,28 +195,6 @@ public class StorageProxy implements StorageProxyMBean
                 {
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
-                    
-                    for( ColumnFamily cf : ((RowMutation)mutation).getColumnFamilies()){
-                    	CFDefinition cfDef = cf.metadata().getCfDef();
-		                if(cf.getSortedColumns().size() == 0){
-                    		announceMetadataLogDeleteMigration(cfDef, mutation.key(), cf, MetadataRegistry.delete_Tag);
-                    	}else{
-                    		
-                    		 if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
-                    	        	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
-                    	        	String dataTag = itr.next().getString(cf.getComparator());
-                    	        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
-                    	        	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
-                    	        	try{
-                    	        		MigrationManager.announceMetadataRegistryUpdate(new String(mutation.key().array()), dataTag, adminTag);
-                    	        	}catch(Exception e){
-                    	        		
-                    	        	}
-                    	     }else{
-                    	    	 announceMetadataLogInsertMigration(cfDef, mutation.key(), cf, MetadataRegistry.Insert_Tag);
-                    	     }
-                    	}        
-                    }
                 }
             }
 
