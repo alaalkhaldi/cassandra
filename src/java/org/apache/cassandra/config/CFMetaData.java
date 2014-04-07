@@ -54,6 +54,7 @@ import org.apache.cassandra.thrift.IndexType;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
+import org.apache.cassandra.metadata.Metadata;
 
 import static org.apache.cassandra.utils.FBUtilities.*;
 
@@ -227,31 +228,24 @@ public final class CFMetaData
                                                           + "token_bytes blob PRIMARY KEY,"
                                                           + "requested_at timestamp"
                                                           + ") WITH COMMENT='ranges requested for transfer here'");
-    
-    public static final CFMetaData MetadataTagsCf = compile("CREATE TABLE \"" + SystemTable.MetadataTags_CF + "\" ("
-														+ "tag text,"
-														+ "target_object text,"
-														+ "value text,"
-														+ "created_at timestamp,"
-														+ "PRIMARY KEY (tag, target_object)"
-														+ ") WITH COMMENT='metadata definitions'");
-    
-    public static final CFMetaData MetadataRegistryCf = compile("CREATE TABLE \"" + SystemTable.MetadataRegistry_CF + "\" ("
+        
+    public static final CFMetaData MetadataRegistryCf = compile("CREATE TABLE \"" + Metadata.MetadataRegistry_CF + "\" ("
 															+ "target text,"
 															+ "data_tag text,"
 															+ "admin_tag text,"
 															+ "PRIMARY KEY (target, data_tag)"
-															+ ") WITH COMMENT='metadata tag registry'");
+															+ ") WITH COMMENT='metadata tag registry'", 
+															Metadata.MetaData_KS);
     
-    public static final CFMetaData MetadataLogCf = compile("CREATE TABLE \"" + SystemTable.MetadataLog_CF + "\" ("
+    public static final CFMetaData MetadataLogCf = compile("CREATE TABLE \"" + Metadata.MetadataLog_CF + "\" ("
 															+ "target text,"
 															+ "time text,"
 															+ "client text,"
 															+ "tag text,"
 															+ "value text,"
 															+ "PRIMARY KEY (Target, time, client, tag)"
-															+ ") WITH COMMENT='metadata log'");
-
+															+ ") WITH COMMENT='metadata log'", 
+															Metadata.MetaData_KS);
 
     public enum Caching
     {
@@ -295,7 +289,6 @@ public final class CFMetaData
     private volatile Double bloomFilterFpChance = null;
     private volatile Caching caching = DEFAULT_CACHING_STRATEGY;
     private volatile boolean populateIoCacheOnFlush = DEFAULT_POPULATE_IO_CACHE_ON_FLUSH;
-    private volatile Map<String, MetadataTags> droppedColumns = new HashMap<String, MetadataTags>();
 
     volatile Map<ByteBuffer, ColumnDefinition> column_metadata = new HashMap<ByteBuffer,ColumnDefinition>();
     public volatile Class<? extends AbstractCompactionStrategy> compactionStrategyClass = DEFAULT_COMPACTION_STRATEGY_CLASS;
@@ -327,7 +320,6 @@ public final class CFMetaData
     public CFMetaData bloomFilterFpChance(Double prop) {bloomFilterFpChance = prop; return this;}
     public CFMetaData caching(Caching prop) {caching = prop; return this;}
     public CFMetaData populateIoCacheOnFlush(boolean prop) {populateIoCacheOnFlush = prop; return this;}
-    public CFMetaData droppedColumns(Map<String, MetadataTags> cols) {droppedColumns = cols; return this;}
 
     public CFMetaData(String keyspace, String name, ColumnFamilyType type, AbstractType<?> comp, AbstractType<?> subcc)
     {
@@ -477,8 +469,7 @@ public final class CFMetaData
                       .compressionParameters(oldCFMD.compressionParameters)
                       .bloomFilterFpChance(oldCFMD.bloomFilterFpChance)
                       .caching(oldCFMD.caching)
-                      .populateIoCacheOnFlush(oldCFMD.populateIoCacheOnFlush)
-                      .droppedColumns(oldCFMD.droppedColumns);
+                      .populateIoCacheOnFlush(oldCFMD.populateIoCacheOnFlush);
     }
 
     /**
@@ -609,11 +600,6 @@ public final class CFMetaData
         return caching;
     }
     
-    public Map<String, MetadataTags> getDroppedColumns()
-    {
-           return droppedColumns;
-    }
-
     public boolean equals(Object obj)
     {
         if (obj == this)
@@ -652,7 +638,6 @@ public final class CFMetaData
             .append(bloomFilterFpChance, rhs.bloomFilterFpChance)
             .append(caching, rhs.caching)
             .append(populateIoCacheOnFlush, rhs.populateIoCacheOnFlush)
-            .append(droppedColumns, rhs.droppedColumns)
             .isEquals();
     }
 
@@ -684,7 +669,6 @@ public final class CFMetaData
             .append(bloomFilterFpChance)
             .append(caching)
             .append(populateIoCacheOnFlush)
-            .append(droppedColumns)
             .toHashCode();
     }
 
@@ -850,9 +834,6 @@ public final class CFMetaData
         caching = cfm.caching;
         populateIoCacheOnFlush = cfm.populateIoCacheOnFlush;
         
-        if (!cfm.droppedColumns.isEmpty())
-        	 droppedColumns = cfm.droppedColumns;
-
         MapDifference<ByteBuffer, ColumnDefinition> columnDiff = Maps.difference(column_metadata, cfm.column_metadata);
         // columns that are no longer needed
         for (ColumnDefinition cd : columnDiff.entriesOnlyOnLeft().values())
@@ -1587,17 +1568,7 @@ public final class CFMetaData
         }
         return false;
     }
-    
-    public void recordColumnDrop(String colName, MetadataTags mtd)
-    {
-    	droppedColumns.put(colName, mtd);		
-    }
-    
-    public void removeColumnDrop(String colName)
-    {
-    	droppedColumns.remove(colName);		
-    }
-    
+       
     @Override
     public String toString()
     {

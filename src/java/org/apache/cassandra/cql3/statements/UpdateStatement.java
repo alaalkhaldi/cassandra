@@ -26,7 +26,7 @@ import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
-import org.apache.cassandra.metadata.MetadataRegistry;
+import org.apache.cassandra.metadata.Metadata;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.Pair;
@@ -262,7 +262,7 @@ public class UpdateStatement extends ModificationStatement
                 op.execute(key, cf, builder.copy(), params);
         }      
         
-        if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
+        if (cfDef.cfm.ksName.equals(Metadata.MetaData_KS) && cfDef.cfm.cfName.equals(Metadata.MetadataRegistry_CF)) {  
         	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
         	String dataTag = itr.next().getString(cf.getComparator());
         	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
@@ -270,8 +270,8 @@ public class UpdateStatement extends ModificationStatement
         	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
         	return new RowMutation(cfDef.cfm.ksName, key);
         }
-        else{
-        	String dataTag = (operations == null)? MetadataRegistry.Insert_Tag : MetadataRegistry.Update_Tag;
+        else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
+        	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
         	announceMetadataLogMigration(cfDef, key, cf, dataTag);
         }
 

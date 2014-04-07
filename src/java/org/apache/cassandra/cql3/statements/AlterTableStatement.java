@@ -30,11 +30,10 @@ import com.google.common.collect.Sets;
 import org.apache.cassandra.auth.Permission;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.ColumnDefinition;
-import org.apache.cassandra.config.MetadataTags;
 import org.apache.cassandra.cql3.*;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
-import org.apache.cassandra.metadata.MetadataRegistry;
+import org.apache.cassandra.metadata.*;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.transport.messages.ResultMessage;
@@ -76,7 +75,6 @@ public class AlterTableStatement extends SchemaAlteringStatement
 
         CFDefinition cfDef = meta.getCfDef();
         CFDefinition.Name name = columnName == null ? null : cfDef.get(columnName);
-        MetadataTags mtd;
         String logValue = "";
         		
         switch (oType)
@@ -96,13 +94,6 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     }
                 }
                 
-                // check if there is a Metadata_tags for the newly added column
-                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
-                if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
-						MigrationManager.announceMetadataTagsDrop(mtd);
-						cfm.removeColumnDrop(columnName.toString());
-                }
-
 				// The original functionality
                 AbstractType<?> type = validator.getType();
                 if (type instanceof CollectionType)
@@ -136,7 +127,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 
                 logValue = "column_name=" + columnName.toString() + "," + "cql_type=" + type.asCQL3Type().toString();
                 MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-                		MetadataRegistry.AlterColumnFamily_Add_Tag, clientState, logValue);
+                		Metadata.AlterColumnFamily_Add_Tag, clientState, logValue);
                 break;
 
             case ALTER:
@@ -203,7 +194,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 		   "New: " + "column_name=" + columnName.toString() + "," + "cql_type=" + validator.getType().asCQL3Type().toString();
                 
                 MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-                		MetadataRegistry.AlterColumnFamily_Alter_Tag, clientState, logValue);
+                		Metadata.AlterColumnFamily_Alter_Tag, clientState, logValue);
                 
                 break;
 
@@ -215,14 +206,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 if (!cfDef.isComposite)
                 	throw new InvalidRequestException("Cannot drop columns from a non-CQL3 CF");
                 if (name == null){
-                	mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
-                	if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
-        				MigrationManager.announceMetadataTagsUpdate(mtd);
-        				cfm.recordColumnDrop(columnName.toString(), mtd);	
-        				break;
-                	}
-                	else
-                		throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
+               		throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
                 }
 
                 switch (name.kind)
@@ -231,27 +215,18 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     case COLUMN_ALIAS:
                         throw new InvalidRequestException(String.format("Cannot drop PRIMARY KEY part %s", columnName));
                     case COLUMN_METADATA:
-                    	mtd = null;
                         for (ColumnDefinition columnDef : cfm.getColumn_metadata().values())
                         {
                             if (columnDef.name.equals(columnName.key)){
                                 toDelete = columnDef;
-                                // Metadata_tag new record                                              
-                                mtd = new MetadataTags(MetadataTags.ColumnDrop_Tag, keyspace(), columnFamily(), columnName.toString());
-								MigrationManager.announceMetadataTagsUpdate(mtd);
-								cfm.recordColumnDrop(columnName.toString(), mtd);
                             }
                         }
-                        assert toDelete != null && mtd != null;
-                        
-                        if(mtd.getValue() != null && mtd.getValue().equals(MetadataTags.ColumnDrop_Dropped)){
-                        	cfm.removeColumnDefinition(toDelete);
-                        }
+                        assert toDelete != null;
                 }
                 
                 logValue = "column_name=" + columnName.toString();
 	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	             		MetadataRegistry.AlterColumnFamily_Drop_Tag, clientState, logValue);
+	            		Metadata.AlterColumnFamily_Drop_Tag, clientState, logValue);
                 
                 break;
             case OPTS:
@@ -264,7 +239,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 //TODO: fix the format and add old value
                 logValue = "New: " + cfProps.toString();
 	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	             		MetadataRegistry.AlterColumnFamily_Prob_Tag, clientState, logValue);
+	            		Metadata.AlterColumnFamily_Prob_Tag, clientState, logValue);
 	            
                 break;
             case RENAME:
@@ -304,7 +279,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 }
                 
 	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	             		MetadataRegistry.AlterColumnFamily_Rename_Tag, clientState, logValue);
+	            		Metadata.AlterColumnFamily_Rename_Tag, clientState, logValue);
 	            
                 break;
         }

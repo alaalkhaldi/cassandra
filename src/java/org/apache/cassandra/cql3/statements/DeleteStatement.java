@@ -32,7 +32,7 @@ import org.apache.cassandra.db.SystemTable;
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
-import org.apache.cassandra.metadata.MetadataRegistry;
+import org.apache.cassandra.metadata.Metadata;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.thrift.ThriftValidation;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -144,7 +144,7 @@ public class DeleteStatement extends ModificationStatement
             }
         }
         
-        if (cfDef.cfm.ksName.equals(Table.SYSTEM_KS) && cfDef.cfm.cfName.equals(SystemTable.MetadataRegistry_CF)) {  
+        if (cfDef.cfm.ksName.equals(Metadata.MetaData_KS) && cfDef.cfm.cfName.equals(Metadata.MetadataRegistry_CF)) {  
         	if(rowDelete){
             	MigrationManager.announceMetadataRegistryDrop(new String(key.array()));
         	}else{
@@ -155,8 +155,8 @@ public class DeleteStatement extends ModificationStatement
         	}
         	return new RowMutation(cfDef.cfm.ksName, key);
        
-        }else{
-        	announceMetadataLogMigration(cfDef, key, cf, MetadataRegistry.delete_Tag);
+        }else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
+        	announceMetadataLogMigration(cfDef, key, cf, Metadata.delete_Tag);
         }
 
         return rm;

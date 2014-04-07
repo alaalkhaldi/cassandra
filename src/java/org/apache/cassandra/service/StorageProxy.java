@@ -63,7 +63,6 @@ import org.apache.cassandra.io.util.FastByteArrayOutputStream;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.TokenMetadata;
-import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.metrics.ClientRequestMetrics;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.net.*;
@@ -234,103 +233,6 @@ public class StorageProxy implements StorageProxyMBean
         {
             writeMetrics.addNano(System.nanoTime() - startTime);
         }
-    }
-    
-    private static void announceMetadataLogInsertMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
-    	
-    	String partitioningKeyName = "";	
-		try {
-			if (cfDef.hasCompositeKey) {
-				for (int i = 0; i < cfDef.keys.size(); i++) {
-					ByteBuffer bb = CompositeType.extractComponent(key, i);
-					if (i != 0) partitioningKeyName += ".";
-					partitioningKeyName += ByteBufferUtil.string(bb);
-				}
-			} else {
-				partitioningKeyName = ByteBufferUtil.string(key);
-			}
-		} catch (CharacterCodingException e) {
-			return;
-		}
-			
-    	// Iterating Column Family to get columns
-    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
-    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
-    	String allValues = ""; 
-    	
-    	for( IColumn col: cf.getSortedColumns()){
-    		String colName = col.getString(cf.getComparator());
-
-    		// filter column markers
-    		if(colName.indexOf("::") != -1)
-    			continue;
-    		
-    		int colNameBoundary = colName.indexOf("false");
-    		if(colNameBoundary == -1) 
-    			colNameBoundary = colName.indexOf("true");
-
-    		colName = colName.substring(0, colNameBoundary-1);
-    		colName = colName.replace(':', '.');
-    		
-    		String colVal = new String(col.value().array());
-    		
-    		if(!colName.equals("")){
-        		allValues +=  colName + "=" ; //+ colVal + ";";
-        		targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
-    		}
-    	}
-    	targets.add( Pair.create(partitioningKeyName, allValues));
-    	
-    	String client =  null;
-    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
-    }
-
-    private static void announceMetadataLogDeleteMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
-    	
-    	String partitioningKeyName = "";	
-		try {
-			if (cfDef.hasCompositeKey) {
-				for (int i = 0; i < cfDef.keys.size(); i++) {
-					ByteBuffer bb = CompositeType.extractComponent(key, i);
-					if (i != 0) partitioningKeyName += ".";
-					partitioningKeyName += ByteBufferUtil.string(bb);
-				}
-			} else {
-				partitioningKeyName = ByteBufferUtil.string(key);
-			}
-		} catch (CharacterCodingException e) {
-			return;
-		}
-			
-    	// Iterating Column Family to get columns
-    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
-    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
-    	String allValues = ""; 
-    	
-    	for( IColumn col: cf.getSortedColumns()){
-    		String colName = col.getString(cf.getComparator());
-
-    		// filter column markers
-    		if(colName.indexOf("::") != -1)
-    			continue;
-    		
-    		int colNameBoundary = colName.indexOf("false");
-    		if(colNameBoundary == -1) 
-    			colNameBoundary = colName.indexOf("true");
-
-    		colName = colName.substring(0, colNameBoundary-1);
-    		colName = colName.replace(':', '.');
-    		   		
-    		// insert empty values
-    		if(!colName.equals("")){
-        		allValues +=  colName + ";";
-        		targets.add( Pair.create(partitioningKeyName + "." + colName, ""));
-    		}
-    	}
-    	targets.add( Pair.create(partitioningKeyName, allValues));
-    	
-    	String client = null;
-    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 
     /**

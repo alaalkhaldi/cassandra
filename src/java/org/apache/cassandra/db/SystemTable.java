@@ -66,10 +66,7 @@ public class SystemTable
     public static final String COUNTER_ID_CF = "NodeIdInfo";
     public static final String HINTS_CF = "hints";
     public static final String RANGE_XFERS_CF = "range_xfers";
-    public static final String BATCHLOG_CF = "batchlog";
-    public static final String MetadataTags_CF = "metadata_tags";
-    public static final String MetadataRegistry_CF = "metadata_registry";
-    public static final String MetadataLog_CF = "metadata_log";
+    public static final String BATCHLOG_CF = "batchlog"; 
     // see layout description in the DefsTable class header
     public static final String SCHEMA_KEYSPACES_CF = "schema_keyspaces";
     public static final String SCHEMA_COLUMNFAMILIES_CF = "schema_columnfamilies";

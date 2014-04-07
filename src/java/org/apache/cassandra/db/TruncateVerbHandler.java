@@ -20,7 +20,7 @@ package org.apache.cassandra.db;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.cassandra.io.FSError;
-import org.apache.cassandra.metadata.MetadataRegistry;
+import org.apache.cassandra.metadata.Metadata;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessagingService;
@@ -50,7 +50,7 @@ public class TruncateVerbHandler implements IVerbHandler<Truncation>
         }
         
         MigrationManager.announceMetadataLogMigration(t.keyspace + "." + t.columnFamily, 
-        		MetadataRegistry.TruncateColumnFamily_Tag, t.client, "");
+        		Metadata.TruncateColumnFamily_Tag, t.client, "");
         
         
         Tracing.trace("Enqueuing response to truncate operation to {}", message.from);
