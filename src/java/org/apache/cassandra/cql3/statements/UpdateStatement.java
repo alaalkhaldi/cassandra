@@ -262,18 +262,18 @@ public class UpdateStatement extends ModificationStatement
                 op.execute(key, cf, builder.copy(), params);
         }      
         
-        if (cfDef.cfm.ksName.equals(Metadata.MetaData_KS) && cfDef.cfm.cfName.equals(Metadata.MetadataRegistry_CF)) {  
-        	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
-        	String dataTag = itr.next().getString(cf.getComparator());
-        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
-        	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
-        	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
-        	return new RowMutation(cfDef.cfm.ksName, key);
-        }
-        else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
-        	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
-        	announceMetadataLogMigration(cfDef, key, cf, dataTag);
-        }
+//        if (cfDef.cfm.ksName.equals(Metadata.MetaData_KS) && cfDef.cfm.cfName.equals(Metadata.MetadataRegistry_CF)) {  
+//        	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
+//        	String dataTag = itr.next().getString(cf.getComparator());
+//        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
+//        	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
+//        	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
+//        	return new RowMutation(cfDef.cfm.ksName, key);
+//        }
+//        else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
+//        	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
+//        	announceMetadataLogMigration(cfDef, key, cf, dataTag);
+//        }
 
         return type == Type.COUNTER ? new CounterMutation(rm, cl) : rm;
     }
