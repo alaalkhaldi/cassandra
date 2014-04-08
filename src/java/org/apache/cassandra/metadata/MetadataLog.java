@@ -6,6 +6,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
+import org.apache.cassandra.concurrent.Stage;
+import org.apache.cassandra.concurrent.StageManager;
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.db.Column;	
@@ -83,6 +85,7 @@ public class MetadataLog {
 	            }
 	        };
 	        
-	   runnable.run();    	
+	        //runnable.run();
+	        StageManager.getStage(Stage.MUTATION).execute(runnable);    	
 	}
 }
