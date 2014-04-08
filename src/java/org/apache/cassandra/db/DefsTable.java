@@ -346,25 +346,25 @@ public class DefsTable
         		 ColumnFamily cf = mutation.getColumnFamily(Schema.instance.getCFMetaData(Metadata.MetaData_KS, Metadata.MetadataLog_CF).cfId);           
                  if(cf != null ){
                 	// check if insertion
-                 	if(cf.getSortedColumns().size() != 0){                 		
-                 		// check if the metadata log insertion should be applied
-                 		// if no entry is found in the system_metadata.registry table. don't apply the mutation.
-     	            	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
-     	            	String dataTag = itr.next().getString(cf.getComparator());
-     	            	
-     	            	int colNameBoundary = dataTag.indexOf("false");
-     	            	if(colNameBoundary == -1) 
-     	            		colNameBoundary = dataTag.indexOf("true");
-     	            	
-     	            	dataTag = dataTag.substring(0, colNameBoundary-1);
-     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1);
-     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1, dataTag.lastIndexOf(":"));
-     	            	
-     	            	String exists = MetadataRegistry.instance.query(new String(mutation.key().array()), dataTag);
-     	            	if(exists == null){
-     	            		continue;
-     	            	}
-                 	}
+//                 	if(cf.getSortedColumns().size() != 0){                 		
+//                 		// check if the metadata log insertion should be applied
+//                 		// if no entry is found in the system_metadata.registry table. don't apply the mutation.
+//     	            	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
+//     	            	String dataTag = itr.next().getString(cf.getComparator());
+//     	            	
+//     	            	int colNameBoundary = dataTag.indexOf("false");
+//     	            	if(colNameBoundary == -1) 
+//     	            		colNameBoundary = dataTag.indexOf("true");
+//     	            	
+//     	            	dataTag = dataTag.substring(0, colNameBoundary-1);
+//     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1);
+//     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1, dataTag.lastIndexOf(":"));
+//     	            	
+//     	            	String exists = MetadataRegistry.instance.query(new String(mutation.key().array()), dataTag);
+//     	            	if(exists == null){
+//     	            		continue;
+//     	            	}
+//                 	}
                  }    
         	}
         	
