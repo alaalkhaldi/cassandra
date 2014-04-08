@@ -352,10 +352,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     private static void announceMetadata(final RowMutation mutation)
     {
-        StageManager.getStage(Stage.MUTATION).execute(new WrappedRunnable()
-        {
-            public void runMayThrow() throws Exception
-            {
+        //StageManager.getStage(Stage.MUTATION).execute(new WrappedRunnable()
+       //{
+           // public void runMayThrow() throws Exception
+           // {
             	String table =  Metadata.MetaData_KS;
         		Token tk = StorageService.getPartitioner().getToken(mutation.key());
         		
@@ -370,11 +370,15 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         			// current major
         			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
         				continue;
-
-        			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
+       			
+                    MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(
+                    		MessagingService.Verb.DEFINITIONS_UPDATE,
+                    		Collections.singletonList(mutation),
+                            MigrationsSerializer.instance);
+                    //MessagingService.instance().sendOneWay(msg, destination);
         		}
-            }
-        });
+           // }
+       // });
 		
 
 //         StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
@@ -503,7 +507,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     public static void announceMetadataLogMigration(String target, String dataTag, String client, String logValue){   	
     	if(client == null) client = "";
     	RowMutation rm = MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, "");
-    	//announceMetadata(rm);
+    	announceMetadata(rm);
     }
     
     public static void announceMetadataLogMigration(String target, String dataTag, ClientState clientstate, String logValue){
