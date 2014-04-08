@@ -51,6 +51,7 @@ import org.apache.cassandra.metadata.*;
 import org.apache.cassandra.net.CompactEndpointSerializationHelper;
 import org.apache.cassandra.net.MessageOut;
 import org.apache.cassandra.net.MessagingService;
+import org.apache.cassandra.service.StorageProxy.DroppableRunnable;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -350,12 +351,12 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         return f;
     }
     
-    private static void announceMetadata(final RowMutation mutation)
+	private static void announceMetadata(final RowMutation mutation)
     {
-        //StageManager.getStage(Stage.MUTATION).execute(new WrappedRunnable()
-       //{
-           // public void runMayThrow() throws Exception
-           // {
+    	Runnable runnable = new DroppableRunnable(MessagingService.Verb.MUTATION)
+        {
+        	public void runMayThrow() throws IOException
+            {
             	String table =  Metadata.MetaData_KS;
         		Token tk = StorageService.getPartitioner().getToken(mutation.key());
         		
@@ -363,7 +364,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
 
         		final Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
-        		
+        		       		
             	//logger.error("METADATA: announceMetadata");
         		for (InetAddress endpoint : targets) {
         			// don't send schema to the nodes with the versions older than
@@ -375,10 +376,13 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
                     		MessagingService.Verb.DEFINITIONS_UPDATE,
                     		Collections.singletonList(mutation),
                             MigrationsSerializer.instance);
+
                     MessagingService.instance().sendOneWay(msg, endpoint);
-        		}
-           // }
-       // });
+                }
+            }
+        };
+        
+           StageManager.getStage(Stage.MUTATION).execute(runnable);
 		
 
 //         StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
@@ -389,6 +393,40 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 //             }
 //         });
     	
+    }
+    
+    /**
+     * A Runnable that aborts if it doesn't start running before it times out
+     */
+    private static abstract class DroppableRunnable implements Runnable
+    {
+        private final long constructionTime = System.currentTimeMillis();
+        private final MessagingService.Verb verb;
+
+        public DroppableRunnable(MessagingService.Verb verb)
+        {
+            this.verb = verb;
+        }
+
+        public final void run()
+        {
+            if (System.currentTimeMillis() > constructionTime + DatabaseDescriptor.getTimeout(verb))
+            {
+                MessagingService.instance().incrementDroppedMessages(verb);
+                return;
+            }
+
+            try
+            {
+                runMayThrow();
+            }
+            catch (Exception e)
+            {
+                throw new RuntimeException(e);
+            }
+        }
+
+        abstract protected void runMayThrow() throws Exception;
     }
 
     /**
