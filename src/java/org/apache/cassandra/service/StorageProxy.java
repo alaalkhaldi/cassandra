@@ -194,17 +194,6 @@ public class StorageProxy implements StorageProxyMBean
                 }
                 else
                 {
-                	//Filter Metadata.log mutations and send them separately
-                    boolean isMetadataRm = mutation.getTable().equals(Metadata.MetaData_KS);
-                	if(isMetadataRm){
-                        MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(
-                        		MessagingService.Verb.DEFINITIONS_UPDATE,
-                        		Collections.singletonList((RowMutation)mutation),
-                                MigrationsSerializer.instance);
-                        //MessagingService.instance().sendOneWay(msg, destination);
-                        continue;
-                	}
-                	
                     WriteType wt = mutations.size() <= 1 ? WriteType.SIMPLE : WriteType.UNLOGGED_BATCH;
                     responseHandlers.add(performWrite(mutation, consistency_level, localDataCenter, standardWritePerformer, null, wt));
                 }
@@ -492,9 +481,21 @@ public class StorageProxy implements StorageProxyMBean
     {
         // replicas grouped by datacenter
         Map<String, Collection<InetAddress>> dcGroups = null;
+        boolean isMetadataRm = rm.getTable().equals(Metadata.MetaData_KS);
 
         for (InetAddress destination : targets)
-        {       	
+        {
+        	//Filter Metadata.log mutations and send them separately
+        	if(isMetadataRm){
+                MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(
+                		MessagingService.Verb.DEFINITIONS_UPDATE,
+                		Collections.singletonList(rm),
+                        MigrationsSerializer.instance);
+                //MessagingService.instance().sendOneWay(msg, destination);
+                responseHandler.response(null);
+                continue;
+        	}
+        	
             // avoid OOMing due to excess hints.  we need to do this check even for "live" nodes, since we can
             // still generate hints for those if it's overloaded or simply dead but not yet known-to-be-dead.
             // The idea is that if we have over maxHintsInProgress hints in flight, this is probably due to

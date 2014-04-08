@@ -15,7 +15,7 @@ public class MetadataLog {
 		long timestamp = FBUtilities.timestampMicros();
 
 		// attach admin data
-		value += new MetricsCollector(target, adminTag).getMetrics();
+		//value += new MetricsCollector(target, adminTag).getMetrics();
 		
 		RowMutation rm = new RowMutation(Metadata.MetaData_KS, ByteBufferUtil.bytes(target)); // row key
 
