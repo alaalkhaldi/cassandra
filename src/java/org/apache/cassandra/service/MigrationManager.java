@@ -352,19 +352,19 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     private static void announceMetadata(final RowMutation mutation)
     {
-    	String table =  Metadata.MetaData_KS;
-		Token tk = StorageService.getPartitioner().getToken(mutation.key());
-		
-		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
-		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
-
-		final Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
-		
         StageManager.getStage(Stage.MIGRATION).submit(new WrappedRunnable()
         {
             public void runMayThrow() throws Exception
             {
-            	logger.error("METADATA: announceMetadata");
+            	String table =  Metadata.MetaData_KS;
+        		Token tk = StorageService.getPartitioner().getToken(mutation.key());
+        		
+        		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
+        		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
+
+        		final Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
+        		
+            	//logger.error("METADATA: announceMetadata");
         		for (InetAddress endpoint : targets) {
         			// don't send schema to the nodes with the versions older than
         			// current major

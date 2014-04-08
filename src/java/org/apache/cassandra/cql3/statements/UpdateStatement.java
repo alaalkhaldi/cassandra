@@ -301,31 +301,32 @@ public class UpdateStatement extends ModificationStatement
     	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
     	String allValues = ""; 
     	
-//    	for( IColumn col: cf.getSortedColumns()){
-//    		String colName = col.getString(cf.getComparator());
-//
-//    		// filter column markers
-//    		if(colName.indexOf("::") != -1)
-//    			continue;
-//    		
-//    		int colNameBoundary = colName.indexOf("false");
-//    		if(colNameBoundary == -1) 
-//    			colNameBoundary = colName.indexOf("true");
-//
-//    		colName = colName.substring(0, colNameBoundary-1);
-//    		colName = colName.replace(':', '.');
-//    		
-//    		String colVal = new String(col.value().array());
-//    		
-//    		if(!colName.equals("")){
-//        		allValues +=  colName + "=" + colVal + ";";
-//        		targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
-//    		}
-//    	}
+    	for( IColumn col: cf.getSortedColumns()){
+    		String colName = col.getString(cf.getComparator());
+
+    		// filter column markers
+    		if(colName.indexOf("::") != -1)
+    			continue;
+    		
+    		int colNameBoundary = colName.indexOf("false");
+    		if(colNameBoundary == -1) 
+    			colNameBoundary = colName.indexOf("true");
+
+    		colName = colName.substring(0, colNameBoundary-1);
+    		colName = colName.replace(':', '.');
+    		
+    		String colVal = new String(col.value().array());
+    		
+    		if(!colName.equals("")){
+        		allValues +=  colName + "=" + colVal + ";";
+        		//targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
+    		}
+    	}
     	targets.add( Pair.create(partitioningKeyName, allValues));
     	
     	String client = (clientState == null)? null :  clientState.getUser().getName();
-    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
+    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
+    	//MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 
     public ParsedStatement.Prepared prepare(ColumnSpecification[] boundNames) throws InvalidRequestException
