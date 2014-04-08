@@ -279,7 +279,7 @@ public class UpdateStatement extends ModificationStatement
         }
         else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
         	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
-        	mutations.add(announceMetadataLogMigration(cfDef, key, cf, dataTag));
+        	//mutations.add(announceMetadataLogMigration(cfDef, key, cf, dataTag));
         }
 
         if(type == Type.COUNTER){
