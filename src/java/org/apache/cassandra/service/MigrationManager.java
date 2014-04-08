@@ -352,22 +352,31 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     private static void announceMetadata(final RowMutation mutation)
     {
-    	String table =  Metadata.MetaData_KS;
-		Token tk = StorageService.getPartitioner().getToken(mutation.key());
-		
-		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
-		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
+//    	String table =  Metadata.MetaData_KS;
+//		Token tk = StorageService.getPartitioner().getToken(mutation.key());
+//		
+//		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
+//		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
+//
+//		Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
+//		
+//		for (InetAddress endpoint : targets) {
+//			// don't send schema to the nodes with the versions older than
+//			// current major
+//			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
+//				continue;
+//
+//			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
+//		}
 
-		Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
-		
-		for (InetAddress endpoint : targets) {
-			// don't send schema to the nodes with the versions older than
-			// current major
-			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
-				continue;
-
-			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
-		}
+         StageManager.getStage(Stage.TRACING).execute(new WrappedRunnable()
+         {
+             public void runMayThrow() throws Exception
+             {
+                 StorageProxy.mutate(Arrays.asList(mutation), ConsistencyLevel.ANY);
+             }
+         });
+    	
     }
 
     /**

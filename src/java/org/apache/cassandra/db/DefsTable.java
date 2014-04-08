@@ -342,10 +342,10 @@ public class DefsTable
 
         for (RowMutation mutation : mutations){
             
-        	if(mutation.getTable().equals(Metadata.MetaData_KS)){
-        		 ColumnFamily cf = mutation.getColumnFamily(Schema.instance.getCFMetaData(Metadata.MetaData_KS, Metadata.MetadataLog_CF).cfId);           
-                 if(cf != null ){
-                	// check if insertion
+//        	if(mutation.getTable().equals(Metadata.MetaData_KS)){
+//        		 ColumnFamily cf = mutation.getColumnFamily(Schema.instance.getCFMetaData(Metadata.MetaData_KS, Metadata.MetadataLog_CF).cfId);           
+//                 if(cf != null ){
+//                	// check if insertion
 //                 	if(cf.getSortedColumns().size() != 0){                 		
 //                 		// check if the metadata log insertion should be applied
 //                 		// if no entry is found in the system_metadata.registry table. don't apply the mutation.
@@ -365,8 +365,8 @@ public class DefsTable
 //     	            		continue;
 //     	            	}
 //                 	}
-                 }    
-        	}
+//                 }    
+//        	}
         	
         	// Apply the mutation in all other cases
         	mutation.apply();
