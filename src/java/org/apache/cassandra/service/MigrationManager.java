@@ -375,7 +375,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
                     		MessagingService.Verb.DEFINITIONS_UPDATE,
                     		Collections.singletonList(mutation),
                             MigrationsSerializer.instance);
-                    //MessagingService.instance().sendOneWay(msg, destination);
+                    MessagingService.instance().sendOneWay(msg, endpoint);
         		}
            // }
        // });
