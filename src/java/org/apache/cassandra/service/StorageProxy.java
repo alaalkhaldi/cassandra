@@ -491,7 +491,7 @@ public class StorageProxy implements StorageProxyMBean
                 		MessagingService.Verb.DEFINITIONS_UPDATE,
                 		Collections.singletonList(rm),
                         MigrationsSerializer.instance);
-                MessagingService.instance().sendOneWay(msg, destination);
+                //MessagingService.instance().sendOneWay(msg, destination);
                 responseHandler.response(null);
                 continue;
         	}
