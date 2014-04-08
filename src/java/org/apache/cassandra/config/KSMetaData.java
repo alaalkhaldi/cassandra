@@ -106,7 +106,7 @@ public final class KSMetaData
     public static KSMetaData metadataKeyspace(){
     	List<CFMetaData> cfDefs = Arrays.asList(CFMetaData.MetadataRegistryCf, CFMetaData.MetadataLogCf);
     	// TODO: replication factor and strategy should be configurable
-        return new KSMetaData(Metadata.MetaData_KS, SimpleStrategy.class, ImmutableMap.of("replication_factor", "3"), true, cfDefs);
+        return new KSMetaData(Metadata.MetaData_KS, SimpleStrategy.class, ImmutableMap.of("replication_factor", "1"), true, cfDefs);
     }
 
     public static KSMetaData testMetadata(String name, Class<? extends AbstractReplicationStrategy> strategyClass, Map<String, String> strategyOptions, CFMetaData... cfDefs)

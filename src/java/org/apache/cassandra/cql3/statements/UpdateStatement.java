@@ -325,7 +325,7 @@ public class UpdateStatement extends ModificationStatement
     	targets.add( Pair.create(partitioningKeyName, allValues));
     	
     	String client = (clientState == null)? null :  clientState.getUser().getName();
-    	//MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
+    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
     	//MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 

@@ -352,10 +352,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     private static void announceMetadata(final RowMutation mutation)
     {
-        StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
-        {
-            public void runMayThrow() throws Exception
-            {
+//        StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
+//        {
+//            public void runMayThrow() throws Exception
+//            {
             	String table =  Metadata.MetaData_KS;
         		Token tk = StorageService.getPartitioner().getToken(mutation.key());
         		
@@ -373,8 +373,8 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 
         			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
         		}
-            }
-        });
+//            }
+//        });
 		
 
 //         StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
