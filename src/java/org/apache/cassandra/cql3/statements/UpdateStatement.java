@@ -135,7 +135,7 @@ public class UpdateStatement extends ModificationStatement
         UpdateParameters params = new UpdateParameters(variables, getTimestamp(now), getTimeToLive(), rows);
                
         for (ByteBuffer key: keys)
-            mutations.addAll(mutationForKey(cfDef, key, builder, params, cl));
+            mutations.add(mutationForKey(cfDef, key, builder, params, cl));
 
         return mutations;
     }
@@ -212,15 +212,12 @@ public class UpdateStatement extends ModificationStatement
      * @throws InvalidRequestException on the wrong request
      * @throws ConfigurationException 
      */
-    private Collection<IMutation> mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, UpdateParameters params, ConsistencyLevel cl)
+    private IMutation mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, UpdateParameters params, ConsistencyLevel cl)
     throws InvalidRequestException, ConfigurationException
     {
         validateKey(key);
 
-        QueryProcessor.validateKey(key);
-        
-        Collection<IMutation> mutations = new ArrayList();
-        
+        QueryProcessor.validateKey(key);	
         RowMutation rm = new RowMutation(cfDef.cfm.ksName, key);
         ColumnFamily cf = rm.addOrGet(cfDef.cfm);
 
@@ -273,72 +270,65 @@ public class UpdateStatement extends ModificationStatement
         	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
         	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
         	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
-        	mutations.add(new RowMutation(cfDef.cfm.ksName, key));
-        	
-        	return mutations;
+        	return new RowMutation(cfDef.cfm.ksName, key);
         }
         else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
         	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
-        	mutations.add(announceMetadataLogMigration(cfDef, key, cf, dataTag));
+        	announceMetadataLogMigration(cfDef, key, cf, dataTag);
         }
 
-        if(type == Type.COUNTER){
-        	mutations.add(new CounterMutation(rm, cl));
-        }else{
-        	mutations.add(rm);
-        }
-        return mutations;
+        return type == Type.COUNTER ? new CounterMutation(rm, cl) : rm;
     }
     
     
-    private RowMutation announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    private void announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
     	
-//    	String partitioningKeyName = "";	
-//		try {
-//			if (cfDef.hasCompositeKey) {
-//				for (int i = 0; i < cfDef.keys.size(); i++) {
-//					ByteBuffer bb = CompositeType.extractComponent(key, i);
-//					if (i != 0) partitioningKeyName += ".";
-//					partitioningKeyName += ByteBufferUtil.string(bb);
-//				}
-//			} else {
-//				partitioningKeyName = ByteBufferUtil.string(key);
-//			}
-//		} catch (CharacterCodingException e) {
-//			return null;
-//		}
-//			
-//    	// Iterating Column Family to get columns
-//    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
-//    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
-//    	String allValues = ""; 
-//    	
-//    	for( IColumn col: cf.getSortedColumns()){
-//    		String colName = col.getString(cf.getComparator());
-//
-//    		// filter column markers
-//    		if(colName.indexOf("::") != -1)
-//    			continue;
-//    		
-//    		int colNameBoundary = colName.indexOf("false");
-//    		if(colNameBoundary == -1) 
-//    			colNameBoundary = colName.indexOf("true");
-//
-//    		colName = colName.substring(0, colNameBoundary-1);
-//    		colName = colName.replace(':', '.');
-//    		
-//    		String colVal = new String(col.value().array());
-//    		
-//    		if(!colName.equals("")){
-//        		allValues +=  colName + "=" + colVal + ";";
-//        		//targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
-//    		}
-//    	}
-//    	targets.add( Pair.create(partitioningKeyName, allValues));
-//    	
-//    	String client = (clientState == null)? "" :  clientState.getUser().getName();
-    	return MetadataLog.add("awasd", FBUtilities.timestampMicros(), "", dataTag, "", "");
-    	//MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
+    	String partitioningKeyName = "";	
+		try {
+			if (cfDef.hasCompositeKey) {
+				for (int i = 0; i < cfDef.keys.size(); i++) {
+					ByteBuffer bb = CompositeType.extractComponent(key, i);
+					if (i != 0) partitioningKeyName += ".";
+					partitioningKeyName += ByteBufferUtil.string(bb);
+				}
+			} else {
+				partitioningKeyName = ByteBufferUtil.string(key);
+			}
+		} catch (CharacterCodingException e) {
+			return;
+		}
+			
+    	// Iterating Column Family to get columns
+    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
+    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
+    	String allValues = ""; 
+    	
+    	for( IColumn col: cf.getSortedColumns()){
+    		String colName = col.getString(cf.getComparator());
+
+    		// filter column markers
+    		if(colName.indexOf("::") != -1)
+    			continue;
+    		
+    		int colNameBoundary = colName.indexOf("false");
+    		if(colNameBoundary == -1) 
+    			colNameBoundary = colName.indexOf("true");
+
+    		colName = colName.substring(0, colNameBoundary-1);
+    		colName = colName.replace(':', '.');
+    		
+    		String colVal = new String(col.value().array());
+    		
+    		if(!colName.equals("")){
+        		allValues +=  colName + "=" + colVal + ";";
+        		//targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
+    		}
+    	}
+    	targets.add( Pair.create(partitioningKeyName, allValues));
+    	
+    	String client = (clientState == null)? null :  clientState.getUser().getName();
+    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
+    	//MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
     }
 
     public ParsedStatement.Prepared prepare(ColumnSpecification[] boundNames) throws InvalidRequestException

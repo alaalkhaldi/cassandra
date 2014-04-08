@@ -502,7 +502,8 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     public static void announceMetadataLogMigration(String target, String dataTag, String client, String logValue){   	
     	if(client == null) client = "";
-    	announceMetadata(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, ""));
+    	RowMutation rm = MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, "");
+    	//announceMetadata(rm);
     }
     
     public static void announceMetadataLogMigration(String target, String dataTag, ClientState clientstate, String logValue){
