@@ -350,6 +350,8 @@ public class StorageProxy implements StorageProxyMBean
 
         for (WriteResponseHandlerWrapper wrapper : wrappers)
         {
+        	if(wrapper.mutation.getTable().equals(Metadata.MetaData_KS))
+        		continue;
             wrapper.handler.get();
         }
     }
