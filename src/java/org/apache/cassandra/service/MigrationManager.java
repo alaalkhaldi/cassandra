@@ -381,17 +381,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
             }
         };
         
-           StageManager.getStage(Stage.MUTATION).execute(runnable);
-		
-
-//         StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
-//         {
-//             public void runMayThrow() throws Exception
-//             {
-//                 StorageProxy.mutate(Arrays.asList(mutation), ConsistencyLevel.ANY);
-//             }
-//         });
-    	
+        runnable.run();    	
     }
     
     /**
