@@ -493,6 +493,7 @@ public class StorageProxy implements StorageProxyMBean
                         MigrationsSerializer.instance);
                 MessagingService.instance().sendOneWay(msg, destination);
                 responseHandler.response(null);
+                continue;
         	}
         	
             // avoid OOMing due to excess hints.  we need to do this check even for "live" nodes, since we can
