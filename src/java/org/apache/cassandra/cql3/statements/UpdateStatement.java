@@ -27,8 +27,10 @@ import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
 import org.apache.cassandra.metadata.Metadata;
+import org.apache.cassandra.metadata.MetadataLog;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
+import org.apache.cassandra.utils.FBUtilities;
 import org.apache.cassandra.utils.Pair;
 
 import static org.apache.cassandra.cql.QueryProcessor.validateKey;
@@ -133,7 +135,7 @@ public class UpdateStatement extends ModificationStatement
         UpdateParameters params = new UpdateParameters(variables, getTimestamp(now), getTimeToLive(), rows);
                
         for (ByteBuffer key: keys)
-            mutations.add(mutationForKey(cfDef, key, builder, params, cl));
+            mutations.addAll(mutationForKey(cfDef, key, builder, params, cl));
 
         return mutations;
     }
@@ -210,12 +212,15 @@ public class UpdateStatement extends ModificationStatement
      * @throws InvalidRequestException on the wrong request
      * @throws ConfigurationException 
      */
-    private IMutation mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, UpdateParameters params, ConsistencyLevel cl)
+    private Collection<IMutation> mutationForKey(CFDefinition cfDef, ByteBuffer key, ColumnNameBuilder builder, UpdateParameters params, ConsistencyLevel cl)
     throws InvalidRequestException, ConfigurationException
     {
         validateKey(key);
 
-        QueryProcessor.validateKey(key);	
+        QueryProcessor.validateKey(key);
+        
+        Collection<IMutation> mutations = new ArrayList();
+        
         RowMutation rm = new RowMutation(cfDef.cfm.ksName, key);
         ColumnFamily cf = rm.addOrGet(cfDef.cfm);
 
@@ -268,18 +273,25 @@ public class UpdateStatement extends ModificationStatement
         	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
         	String adminTag = itr.hasNext() ? new String(itr.next().value().array()) : ""; 	
         	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, adminTag);
-        	return new RowMutation(cfDef.cfm.ksName, key);
+        	mutations.add(new RowMutation(cfDef.cfm.ksName, key));
+        	
+        	return mutations;
         }
         else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
         	String dataTag = (operations == null)? Metadata.Insert_Tag : Metadata.Update_Tag;
-        	announceMetadataLogMigration(cfDef, key, cf, dataTag);
+        	mutations.add(announceMetadataLogMigration(cfDef, key, cf, dataTag));
         }
 
-        return type == Type.COUNTER ? new CounterMutation(rm, cl) : rm;
+        if(type == Type.COUNTER){
+        	mutations.add(new CounterMutation(rm, cl));
+        }else{
+        	mutations.add(rm);
+        }
+        return mutations;
     }
     
     
-    private void announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    private RowMutation announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
     	
     	String partitioningKeyName = "";	
 		try {
@@ -293,7 +305,7 @@ public class UpdateStatement extends ModificationStatement
 				partitioningKeyName = ByteBufferUtil.string(key);
 			}
 		} catch (CharacterCodingException e) {
-			return;
+			return null;
 		}
 			
     	// Iterating Column Family to get columns
@@ -324,9 +336,9 @@ public class UpdateStatement extends ModificationStatement
     	}
     	targets.add( Pair.create(partitioningKeyName, allValues));
     	
-    	String client = (clientState == null)? null :  clientState.getUser().getName();
-    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
-    	//MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
+    	String client = (clientState == null)? "" :  clientState.getUser().getName();
+    	return MetadataLog.add(partitioningKeyName, FBUtilities.timestampMicros(), client, dataTag, allValues, "");
+    	//MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
     }
 
     public ParsedStatement.Prepared prepare(ColumnSpecification[] boundNames) throws InvalidRequestException

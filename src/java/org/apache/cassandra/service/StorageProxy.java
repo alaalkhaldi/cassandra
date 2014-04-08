@@ -63,9 +63,11 @@ import org.apache.cassandra.io.util.FastByteArrayOutputStream;
 import org.apache.cassandra.locator.AbstractReplicationStrategy;
 import org.apache.cassandra.locator.IEndpointSnitch;
 import org.apache.cassandra.locator.TokenMetadata;
+import org.apache.cassandra.metadata.Metadata;
 import org.apache.cassandra.metrics.ClientRequestMetrics;
 import org.apache.cassandra.metrics.ReadRepairMetrics;
 import org.apache.cassandra.net.*;
+import org.apache.cassandra.service.MigrationManager.MigrationsSerializer;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -479,9 +481,20 @@ public class StorageProxy implements StorageProxyMBean
     {
         // replicas grouped by datacenter
         Map<String, Collection<InetAddress>> dcGroups = null;
+        boolean isMetadataRm = rm.getTable().equals(Metadata.MetaData_KS);
 
         for (InetAddress destination : targets)
         {
+        	//Filter Metadata.log mutations and send them separately
+        	if(isMetadataRm){
+                MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(
+                		MessagingService.Verb.DEFINITIONS_UPDATE,
+                		Collections.singletonList(rm),
+                        MigrationsSerializer.instance);
+                MessagingService.instance().sendOneWay(msg, destination);
+                continue;
+        	}
+        	
             // avoid OOMing due to excess hints.  we need to do this check even for "live" nodes, since we can
             // still generate hints for those if it's overloaded or simply dead but not yet known-to-be-dead.
             // The idea is that if we have over maxHintsInProgress hints in flight, this is probably due to
