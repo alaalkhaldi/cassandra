@@ -350,8 +350,6 @@ public class StorageProxy implements StorageProxyMBean
 
         for (WriteResponseHandlerWrapper wrapper : wrappers)
         {
-        	if(wrapper.mutation.getTable().equals(Metadata.MetaData_KS))
-        		continue;
             wrapper.handler.get();
         }
     }
@@ -494,7 +492,7 @@ public class StorageProxy implements StorageProxyMBean
                 		Collections.singletonList(rm),
                         MigrationsSerializer.instance);
                 MessagingService.instance().sendOneWay(msg, destination);
-                continue;
+                responseHandler.response(null);
         	}
         	
             // avoid OOMing due to excess hints.  we need to do this check even for "live" nodes, since we can
