@@ -358,18 +358,26 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
 		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
 
-		Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
+		final Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
 		
-		for (InetAddress endpoint : targets) {
-			// don't send schema to the nodes with the versions older than
-			// current major
-			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
-				continue;
+        StageManager.getStage(Stage.MIGRATION).submit(new WrappedRunnable()
+        {
+            public void runMayThrow() throws Exception
+            {
+            	logger.error("METADATA: announceMetadata");
+        		for (InetAddress endpoint : targets) {
+        			// don't send schema to the nodes with the versions older than
+        			// current major
+        			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
+        				continue;
 
-			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
-		}
+        			pushSchemaMutation(endpoint, Collections.singletonList(mutation));
+        		}
+            }
+        });
+		
 
-//         StageManager.getStage(Stage.TRACING).execute(new WrappedRunnable()
+//         StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
 //         {
 //             public void runMayThrow() throws Exception
 //             {
