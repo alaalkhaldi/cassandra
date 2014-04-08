@@ -352,7 +352,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
     private static void announceMetadata(final RowMutation mutation)
     {
-        StageManager.getStage(Stage.MIGRATION).execute(new WrappedRunnable()
+        StageManager.getStage(Stage.MUTATION).execute(new WrappedRunnable()
         {
             public void runMayThrow() throws Exception
             {
