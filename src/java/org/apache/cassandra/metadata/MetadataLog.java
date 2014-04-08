@@ -86,6 +86,6 @@ public class MetadataLog {
 	        };
 	        
 	        //runnable.run();
-	        StageManager.getStage(Stage.MIGRATION).execute(runnable);    	
+	        StageManager.getStage(Stage.MISC).execute(runnable);    	
 	}
 }
