@@ -72,7 +72,7 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
             // decide if you want to add metadata for the recieved rm:
             for(ColumnFamily cf: rm.getColumnFamilies()){
             	CFMetaData cfm = Schema.instance.getCFMetaData(cf.id());
-            	announceMetadataLogMigration(cfm.getCfDef(), rm.key(), cf, "");
+            	//announceMetadataLogMigration(cfm.getCfDef(), rm.key(), cf, "");
             }
         }
         catch (IOException e)
