@@ -33,6 +33,7 @@ import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.io.util.FastByteArrayInputStream;
 import org.apache.cassandra.metadata.MetadataLog;
 import org.apache.cassandra.net.*;
+import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.tracing.Tracing;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -80,7 +81,7 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
         }
     }
 
-    private RowMutation announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
+    private void announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
     	
     	String partitioningKeyName = "";	
 		try {
@@ -94,7 +95,7 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
 				partitioningKeyName = ByteBufferUtil.string(key);
 			}
 		} catch (CharacterCodingException e) {
-			return null;
+			return;
 		}
 			
     	// Iterating Column Family to get columns
@@ -126,8 +127,8 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
     	targets.add( Pair.create(partitioningKeyName, allValues));
     	
     	//String client = (clientState == null)? "" :  clientState.getUser().getName();
-    	return MetadataLog.add(partitioningKeyName, FBUtilities.timestampMicros(), "", dataTag, allValues, "");
-    	//MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, client, allValues);
+    	//return MetadataLog.add(partitioningKeyName, FBUtilities.timestampMicros(), "", dataTag, allValues, "");
+    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, "", allValues);
     }
  
     /**

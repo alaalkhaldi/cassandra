@@ -352,10 +352,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
     
 	private static void announceMetadata(final RowMutation mutation)
     {
-    	Runnable runnable = new DroppableRunnable(MessagingService.Verb.MUTATION)
-        {
-        	public void runMayThrow() throws IOException
-            {
+//    	Runnable runnable = new DroppableRunnable(MessagingService.Verb.MUTATION)
+//        {
+//        	public void runMayThrow() throws IOException
+//            {
             	String table =  Metadata.MetaData_KS;
         		Token tk = StorageService.getPartitioner().getToken(mutation.key());
         		
@@ -378,10 +378,10 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
 
                     MessagingService.instance().sendOneWay(msg, endpoint);
                 }
-            }
-        };
-        
-        runnable.run();    	
+//            }
+//        };
+//        
+//        runnable.run();    	
     }
     
     /**
