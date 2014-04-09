@@ -17,13 +17,10 @@
  */
 package org.apache.cassandra.cql3.statements;
 
-import java.io.IOException;
-import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
 
 import org.apache.cassandra.auth.Permission;
-import org.apache.cassandra.config.DatabaseDescriptor;
 import org.apache.cassandra.cql3.*;
 import org.apache.cassandra.db.*;
 import org.apache.cassandra.db.filter.ColumnSlice;
@@ -33,20 +30,11 @@ import org.apache.cassandra.db.marshal.CompositeType;
 import org.apache.cassandra.exceptions.*;
 import org.apache.cassandra.db.IMutation;
 import org.apache.cassandra.db.ExpiringColumn;
-import org.apache.cassandra.db.RowMutation;
-import org.apache.cassandra.dht.Token;
 import org.apache.cassandra.metadata.Metadata;
-import org.apache.cassandra.metadata.MetadataLog;
-import org.apache.cassandra.net.MessageOut;
-import org.apache.cassandra.net.MessagingService;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.QueryState;
 import org.apache.cassandra.service.StorageProxy;
-import org.apache.cassandra.service.StorageService;
-import org.apache.cassandra.service.MigrationManager.MigrationsSerializer;
 import org.apache.cassandra.transport.messages.ResultMessage;
-
-import com.google.common.collect.Iterables;
 
 /**
  * Abstract class for statements that apply on a given column family.
@@ -105,15 +93,6 @@ public abstract class ModificationStatement extends CFStatement implements CQLSt
         if (mutations.isEmpty())
             return null;
         
-        Collection<IMutation> metadataMutations = new ArrayList();
-        
-        for(IMutation rm: mutations){
-        	if(rm.getTable().equals(Metadata.MetaData_KS)){
-        		metadataMutations.add(rm);
-        		mutations.remove(rm);
-        	}
-        }
-
         switch (type)
         {
             case LOGGED:
@@ -129,12 +108,7 @@ public abstract class ModificationStatement extends CFStatement implements CQLSt
             default:
                 throw new AssertionError();
         }
-        
-        if(metadataMutations.size() != 0)
-        	for(IMutation rm: metadataMutations)
-        		MetadataLog.mutateMetadata((RowMutation) rm);
-        	
-        	
+
         return null;
     }
 
