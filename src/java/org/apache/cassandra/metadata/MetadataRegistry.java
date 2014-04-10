@@ -1,17 +1,11 @@
 package org.apache.cassandra.metadata;
 
-import java.util.Map;
-import java.util.HashMap;
-import java.nio.ByteBuffer;
-
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.Schema;
 import org.apache.cassandra.db.Column;
 import org.apache.cassandra.db.ColumnFamily;
-import org.apache.cassandra.db.DeletedColumn;
 import org.apache.cassandra.db.DeletionInfo;
 import org.apache.cassandra.db.RowMutation;
-import org.apache.cassandra.db.SystemTable;
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.filter.QueryFilter;
 import org.apache.cassandra.db.filter.QueryPath;
@@ -23,15 +17,12 @@ import org.slf4j.LoggerFactory;
 
 
 
-public class MetadataRegistry {
+public class MetadataRegistry extends Metadata{
 
     private static final Logger logger = LoggerFactory.getLogger(Schema.class);
     
     public static final MetadataRegistry instance = new MetadataRegistry();
-		
-	public MetadataRegistry()
-	{}
-	
+			
 	public RowMutation add(String target, String dataTag, String adminTag) {
 		long timestamp = FBUtilities.timestampMicros();
 

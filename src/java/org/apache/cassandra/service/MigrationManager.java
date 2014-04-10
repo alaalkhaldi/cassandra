@@ -255,7 +255,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         // prepare metadata_log  
         String logValue = "Old: " + oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites + ";" +
         		"New: " + ksm.strategyClass.getSimpleName() + "," + ksm.strategyOptions.toString() + "," + ksm.durableWrites;
-        announceMetadataLogMigration(ksm.name, Metadata.AlterKeyspace_Tag, state, logValue);
+        MetadataLog.announce(ksm.name, Metadata.AlterKeyspace_Tag, state, logValue);
     }
 
     public static void announceColumnFamilyUpdate(CFMetaData cfm) throws ConfigurationException
@@ -271,14 +271,6 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         logger.info(String.format("Update ColumnFamily '%s/%s' From %s To %s", cfm.ksName, cfm.cfName, oldCfm, cfm));
         announce(oldCfm.toSchemaUpdate(cfm, FBUtilities.timestampMicros()));
     }
-    
-    public static void announceMetadataRegistryUpdate(String target, String dataTag, String AdminTag) throws ConfigurationException{
-    	announceMetadata(MetadataRegistry.instance.add(target, dataTag, AdminTag));
-    }
-    
-    public static void announceMetadataRegistryDrop(String target){
-    	announceMetadata(MetadataRegistry.instance.drop(target));
-    }
        
     public static void announceKeyspaceDrop(String ksName, ClientState state) throws ConfigurationException
     {
@@ -291,7 +283,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         
         // prepare metadata_log  
         String log_value = oldKsm.strategyClass.getSimpleName() + "," + oldKsm.strategyOptions.toString() + "," + oldKsm.durableWrites;
-        announceMetadataLogMigration(oldKsm.name, Metadata.DropKeyspace_Tag, state, log_value);
+        MetadataLog.announce(oldKsm.name, Metadata.DropKeyspace_Tag, state, log_value);
     }
 
     public static void announceColumnFamilyDrop(String ksName, String cfName, ClientState state) throws ConfigurationException
@@ -304,8 +296,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         announce(oldCfm.dropFromSchema(FBUtilities.timestampMicros()));
         
         // prepare metadata_log  
-        String log_value = "";
-        announceMetadataLogMigration(oldCfm.ksName + "." + oldCfm.cfName, Metadata.DropColumnFamily_Tag, state, log_value);
+        MetadataLog.announce(oldCfm.ksName + "." + oldCfm.cfName, Metadata.DropColumnFamily_Tag, state, "");
     }
 
     /**
@@ -317,7 +308,7 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         FBUtilities.waitOnFuture(announce(Collections.singletonList(schema)));
     }
 
-	private static void pushSchemaMutation(InetAddress endpoint, Collection<RowMutation> schema)
+    private static void pushSchemaMutation(InetAddress endpoint, Collection<RowMutation> schema)
     {
         MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(MessagingService.Verb.DEFINITIONS_UPDATE,
                                                                                           schema,
@@ -350,74 +341,6 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
         return f;
     }
     
-	private static void announceMetadata(final RowMutation mutation)
-    {
-//    	Runnable runnable = new DroppableRunnable(MessagingService.Verb.MUTATION)
-//        {
-//        	public void runMayThrow() throws IOException
-//            {
-            	String table =  Metadata.MetaData_KS;
-        		Token tk = StorageService.getPartitioner().getToken(mutation.key());
-        		
-        		List<InetAddress> naturalEndpoints = StorageService.instance.getNaturalEndpoints(table, tk);
-        		Collection<InetAddress> pendingEndpoints = StorageService.instance.getTokenMetadata().pendingEndpointsFor(tk, table);
-
-        		final Iterable<InetAddress> targets = Iterables.concat(naturalEndpoints, pendingEndpoints);
-        		       		
-            	//logger.error("METADATA: announceMetadata");
-        		for (InetAddress endpoint : targets) {
-        			// don't send schema to the nodes with the versions older than
-        			// current major
-        			if (MessagingService.instance().getVersion(endpoint) < MessagingService.current_version)
-        				continue;
-       			
-                    MessageOut<Collection<RowMutation>> msg = new MessageOut<Collection<RowMutation>>(
-                    		MessagingService.Verb.DEFINITIONS_UPDATE,
-                    		Collections.singletonList(mutation),
-                            MigrationsSerializer.instance);
-
-                    MessagingService.instance().sendOneWay(msg, endpoint);
-                }
-//            }
-//        };
-//        
-//        runnable.run();    	
-    }
-    
-    /**
-     * A Runnable that aborts if it doesn't start running before it times out
-     */
-    private static abstract class DroppableRunnable implements Runnable
-    {
-        private final long constructionTime = System.currentTimeMillis();
-        private final MessagingService.Verb verb;
-
-        public DroppableRunnable(MessagingService.Verb verb)
-        {
-            this.verb = verb;
-        }
-
-        public final void run()
-        {
-            if (System.currentTimeMillis() > constructionTime + DatabaseDescriptor.getTimeout(verb))
-            {
-                MessagingService.instance().incrementDroppedMessages(verb);
-                return;
-            }
-
-            try
-            {
-                runMayThrow();
-            }
-            catch (Exception e)
-            {
-                throw new RuntimeException(e);
-            }
-        }
-
-        abstract protected void runMayThrow() throws Exception;
-    }
-
     /**
      * Announce my version passively over gossip.
      * Used to notify nodes as they arrive in the cluster.
@@ -529,23 +452,5 @@ public class MigrationManager implements IEndpointStateChangeSubscriber
                 size += RowMutation.serializer.serializedSize(rm, version);
             return size;
         }
-    }
-    
-    public static void announceMetadataLogMigration(String target, String dataTag, String client, String logValue){   	
-    	if(client == null) client = "";
-    	RowMutation rm = MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, "");
-    	announceMetadata(rm);
-    }
-    
-    public static void announceMetadataLogMigration(String target, String dataTag, ClientState clientstate, String logValue){
-    	String client = (clientstate == null)? "" : clientstate.getUser().getName();
-    	announceMetadata(MetadataLog.add(target, FBUtilities.timestampMicros(), client, dataTag, logValue, ""));
-    }
-    
-    public static void announceMetadataLogMigration(ArrayList<Pair<String,String>>targets, String dataTag, String client){
-    	if(client == null) client = "";
-    	for(Pair<String,String> target: targets){
-        	announceMetadata(MetadataLog.add(target.left, FBUtilities.timestampMicros(), client, dataTag, target.right, ""));
-    	}
-    }
+    } 
 }

@@ -126,8 +126,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                                                              componentIndex));
                 
                 logValue = "column_name=" + columnName.toString() + "," + "cql_type=" + type.asCQL3Type().toString();
-                MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-                		Metadata.AlterColumnFamily_Add_Tag, clientState, logValue);
+                MetadataLog.announce(keyspace() + "." + columnFamily(), Metadata.AlterColumnFamily_Add_Tag, clientState, logValue);
                 break;
 
             case ALTER:
@@ -193,8 +192,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 logValue = "Old: " + "column_name=" + columnName.toString() + "," + "cql_type=" + oldType.asCQL3Type().toString() + ";" +
                 		   "New: " + "column_name=" + columnName.toString() + "," + "cql_type=" + validator.getType().asCQL3Type().toString();
                 
-                MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-                		Metadata.AlterColumnFamily_Alter_Tag, clientState, logValue);
+                MetadataLog.announce(keyspace() + "." + columnFamily(), Metadata.AlterColumnFamily_Alter_Tag, clientState, logValue);
                 
                 break;
 
@@ -225,8 +223,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 }
                 
                 logValue = "column_name=" + columnName.toString();
-	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	            		Metadata.AlterColumnFamily_Drop_Tag, clientState, logValue);
+                MetadataLog.announce(keyspace() + "." + columnFamily(), Metadata.AlterColumnFamily_Drop_Tag, clientState, logValue);
                 
                 break;
             case OPTS:
@@ -238,8 +235,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                 
                 //TODO: fix the format and add old value
                 logValue = "New: " + cfProps.toString();
-	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	            		Metadata.AlterColumnFamily_Prob_Tag, clientState, logValue);
+                MetadataLog.announce(keyspace() + "." + columnFamily(), Metadata.AlterColumnFamily_Prob_Tag, clientState, logValue);
 	            
                 break;
             case RENAME:
@@ -278,8 +274,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     }
                 }
                 
-	            MigrationManager.announceMetadataLogMigration(keyspace() + "." + columnFamily(),
-	            		Metadata.AlterColumnFamily_Rename_Tag, clientState, logValue);
+                MetadataLog.announce(keyspace() + "." + columnFamily(), Metadata.AlterColumnFamily_Rename_Tag, clientState, logValue);
 	            
                 break;
         }

@@ -20,24 +20,13 @@ package org.apache.cassandra.db;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.nio.ByteBuffer;
-import java.nio.charset.CharacterCodingException;
-import java.util.ArrayList;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.apache.cassandra.config.CFMetaData;
-import org.apache.cassandra.config.Schema;
-import org.apache.cassandra.cql3.CFDefinition;
-import org.apache.cassandra.db.marshal.CompositeType;
+
 import org.apache.cassandra.io.util.FastByteArrayInputStream;
-import org.apache.cassandra.metadata.MetadataLog;
 import org.apache.cassandra.net.*;
-import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.tracing.Tracing;
-import org.apache.cassandra.utils.ByteBufferUtil;
-import org.apache.cassandra.utils.FBUtilities;
-import org.apache.cassandra.utils.Pair;
 
 public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
 {
@@ -68,12 +57,6 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
             WriteResponse response = new WriteResponse();
             Tracing.trace("Enqueuing response to {}", replyTo);
             MessagingService.instance().sendReply(response.createMessage(), id, replyTo);
-            
-            // decide if you want to add metadata for the recieved rm:
-            for(ColumnFamily cf: rm.getColumnFamilies()){
-            	CFMetaData cfm = Schema.instance.getCFMetaData(cf.id());
-            	//announceMetadataLogMigration(cfm.getCfDef(), rm.key(), cf, "");
-            }
         }
         catch (IOException e)
         {
@@ -81,56 +64,6 @@ public class RowMutationVerbHandler implements IVerbHandler<RowMutation>
         }
     }
 
-    private void announceMetadataLogMigration(CFDefinition cfDef, ByteBuffer key, ColumnFamily cf, String dataTag){
-    	
-    	String partitioningKeyName = "";	
-		try {
-			if (cfDef.hasCompositeKey) {
-				for (int i = 0; i < cfDef.keys.size(); i++) {
-					ByteBuffer bb = CompositeType.extractComponent(key, i);
-					if (i != 0) partitioningKeyName += ".";
-					partitioningKeyName += ByteBufferUtil.string(bb);
-				}
-			} else {
-				partitioningKeyName = ByteBufferUtil.string(key);
-			}
-		} catch (CharacterCodingException e) {
-			return;
-		}
-			
-    	// Iterating Column Family to get columns
-    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
-    	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
-    	String allValues = ""; 
-    	
-    	for( IColumn col: cf.getSortedColumns()){
-    		String colName = col.getString(cf.getComparator());
-
-    		// filter column markers
-    		if(colName.indexOf("::") != -1)
-    			continue;
-    		
-    		int colNameBoundary = colName.indexOf("false");
-    		if(colNameBoundary == -1) 
-    			colNameBoundary = colName.indexOf("true");
-
-    		colName = colName.substring(0, colNameBoundary-1);
-    		colName = colName.replace(':', '.');
-    		
-    		String colVal = new String(col.value().array());
-    		
-    		if(!colName.equals("")){
-        		allValues +=  colName + "=" + colVal + ";";
-        		//targets.add( Pair.create(partitioningKeyName + "." + colName, colVal));
-    		}
-    	}
-    	targets.add( Pair.create(partitioningKeyName, allValues));
-    	
-    	//String client = (clientState == null)? "" :  clientState.getUser().getName();
-    	//return MetadataLog.add(partitioningKeyName, FBUtilities.timestampMicros(), "", dataTag, allValues, "");
-    	MigrationManager.announceMetadataLogMigration(partitioningKeyName, dataTag, "", allValues);
-    }
- 
     /**
      * Older version (< 1.0) will not send this message at all, hence we don't
      * need to check the version of the data.

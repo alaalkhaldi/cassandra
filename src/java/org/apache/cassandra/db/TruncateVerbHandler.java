@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.cassandra.io.FSError;
 import org.apache.cassandra.metadata.Metadata;
+import org.apache.cassandra.metadata.MetadataLog;
 import org.apache.cassandra.net.IVerbHandler;
 import org.apache.cassandra.net.MessageIn;
 import org.apache.cassandra.net.MessagingService;
@@ -36,7 +37,7 @@ public class TruncateVerbHandler implements IVerbHandler<Truncation>
         Truncation t = message.payload;
         Tracing.trace("Applying truncation of {}.{}", t.keyspace, t.columnFamily);
         try
-        {
+        {	
             ColumnFamilyStore cfs = Table.open(t.keyspace).getColumnFamilyStore(t.columnFamily);
             cfs.truncate().get();
         }
@@ -49,9 +50,7 @@ public class TruncateVerbHandler implements IVerbHandler<Truncation>
                 throw FSError.findNested(e);
         }
         
-        MigrationManager.announceMetadataLogMigration(t.keyspace + "." + t.columnFamily, 
-        		Metadata.TruncateColumnFamily_Tag, t.client, "");
-        
+        MetadataLog.announce(t.keyspace + "." + t.columnFamily, Metadata.TruncateColumnFamily_Tag, t.client, "");
         
         Tracing.trace("Enqueuing response to truncate operation to {}", message.from);
 

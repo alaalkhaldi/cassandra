@@ -41,8 +41,6 @@ import org.apache.cassandra.db.marshal.AsciiType;
 import org.apache.cassandra.db.marshal.UTF8Type;
 import org.apache.cassandra.db.migration.avro.KsDef;
 import org.apache.cassandra.exceptions.ConfigurationException;
-import org.apache.cassandra.metadata.Metadata;
-import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -340,35 +338,7 @@ public class DefsTable
         Map<DecoratedKey, ColumnFamily> oldKeyspaces = SystemTable.getSchema(SystemTable.SCHEMA_KEYSPACES_CF);
         Map<DecoratedKey, ColumnFamily> oldColumnFamilies = SystemTable.getSchema(SystemTable.SCHEMA_COLUMNFAMILIES_CF);
 
-        for (RowMutation mutation : mutations){
-            
-//        	if(mutation.getTable().equals(Metadata.MetaData_KS)){
-//        		 ColumnFamily cf = mutation.getColumnFamily(Schema.instance.getCFMetaData(Metadata.MetaData_KS, Metadata.MetadataLog_CF).cfId);           
-//                 if(cf != null ){
-//                	// check if insertion
-//                 	if(cf.getSortedColumns().size() != 0){                 		
-//                 		// check if the metadata log insertion should be applied
-//                 		// if no entry is found in the system_metadata.registry table. don't apply the mutation.
-//     	            	Iterator<IColumn> itr = cf.getSortedColumns().iterator();
-//     	            	String dataTag = itr.next().getString(cf.getComparator());
-//     	            	
-//     	            	int colNameBoundary = dataTag.indexOf("false");
-//     	            	if(colNameBoundary == -1) 
-//     	            		colNameBoundary = dataTag.indexOf("true");
-//     	            	
-//     	            	dataTag = dataTag.substring(0, colNameBoundary-1);
-//     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1);
-//     	            	dataTag = dataTag.substring(dataTag.indexOf(":")+1, dataTag.lastIndexOf(":"));
-//     	            	
-//     	            	String exists = MetadataRegistry.instance.query(new String(mutation.key().array()), dataTag);
-//     	            	if(exists == null){
-//     	            		continue;
-//     	            	}
-//                 	}
-//                 }    
-//        	}
-        	
-        	// Apply the mutation in all other cases
+        for (RowMutation mutation : mutations){        	
         	mutation.apply();
         }
 

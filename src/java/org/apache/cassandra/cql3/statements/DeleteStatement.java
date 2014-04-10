@@ -33,6 +33,8 @@ import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.marshal.*;
 import org.apache.cassandra.exceptions.*;
 import org.apache.cassandra.metadata.Metadata;
+import org.apache.cassandra.metadata.MetadataLog;
+import org.apache.cassandra.metadata.MetadataRegistry;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.thrift.ThriftValidation;
 import org.apache.cassandra.utils.ByteBufferUtil;
@@ -146,14 +148,13 @@ public class DeleteStatement extends ModificationStatement
         
         if (cfDef.cfm.ksName.equals(Metadata.MetaData_KS) && cfDef.cfm.cfName.equals(Metadata.MetadataRegistry_CF)) {  
         	if(rowDelete){
-            	MigrationManager.announceMetadataRegistryDrop(new String(key.array()));
+        		rm = MetadataRegistry.instance.drop(new String(key.array()));
         	}else{
         		// insert empty adminData to clear the old one
 	        	String dataTag = cf.getSortedColumns().iterator().next().getString(cf.getComparator());
 	        	dataTag = dataTag.substring(0,dataTag.indexOf(':'));
-	        	MigrationManager.announceMetadataRegistryUpdate(new String(key.array()), dataTag, ""); 
+	        	rm = MetadataRegistry.instance.add(new String(key.array()), dataTag, "");
         	}
-        	return new RowMutation(cfDef.cfm.ksName, key);
        
         }else if(!cfDef.cfm.ksName.equals(Table.SYSTEM_KS)){
         	announceMetadataLogMigration(cfDef, key, cf, Metadata.delete_Tag);
@@ -181,7 +182,7 @@ public class DeleteStatement extends ModificationStatement
 		}
 			
     	// Iterating Column Family to get columns
-    	ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
+    	//ArrayList<Pair<String,String>> targets = new ArrayList<Pair<String,String>>();
     	partitioningKeyName = cfDef.cfm.ksName + "." + cfDef.cfm.cfName + "." + partitioningKeyName;
     	String allValues = ""; 
     	
@@ -202,13 +203,13 @@ public class DeleteStatement extends ModificationStatement
     		// insert empty values
     		if(!colName.equals("")){
         		allValues +=  colName + ";";
-        		targets.add( Pair.create(partitioningKeyName + "." + colName, ""));
+        		//targets.add( Pair.create(partitioningKeyName + "." + colName, ""));
     		}
     	}
-    	targets.add( Pair.create(partitioningKeyName, allValues));
+    	//targets.add( Pair.create(partitioningKeyName, allValues));
     	
     	String client = (clientState == null)? null :  clientState.getUser().getName();
-    	MigrationManager.announceMetadataLogMigration(targets, dataTag, client);
+    	MetadataLog.announce(partitioningKeyName, dataTag, client, allValues);
     }
 
     public ParsedStatement.Prepared prepare(ColumnSpecification[] boundNames) throws InvalidRequestException
