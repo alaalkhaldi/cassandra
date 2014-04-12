@@ -26,7 +26,7 @@ public class MetadataLog extends Metadata {
 		return rm;
 	}
 	
-	public static RowMutation drop(String target, long time, String client, String tag, String value) {
+	public static RowMutation drop(String target, long time, String client, String tag) {
 		long timestamp = FBUtilities.timestampMicros();
 		RowMutation rm = new RowMutation(Metadata.MetaData_KS, ByteBufferUtil.bytes(target)); // row key
 

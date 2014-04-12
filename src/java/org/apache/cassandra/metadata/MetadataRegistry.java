@@ -1,14 +1,26 @@
 package org.apache.cassandra.metadata;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.cassandra.config.CFMetaData;
 import org.apache.cassandra.config.Schema;
 import org.apache.cassandra.db.Column;
 import org.apache.cassandra.db.ColumnFamily;
+import org.apache.cassandra.db.ConsistencyLevel;
 import org.apache.cassandra.db.DeletionInfo;
+import org.apache.cassandra.db.ReadCommand;
+import org.apache.cassandra.db.Row;
 import org.apache.cassandra.db.RowMutation;
+import org.apache.cassandra.db.SliceFromReadCommand;
 import org.apache.cassandra.db.Table;
 import org.apache.cassandra.db.filter.QueryFilter;
 import org.apache.cassandra.db.filter.QueryPath;
+import org.apache.cassandra.db.filter.SliceQueryFilter;
+import org.apache.cassandra.exceptions.IsBootstrappingException;
+import org.apache.cassandra.exceptions.ReadTimeoutException;
+import org.apache.cassandra.exceptions.UnavailableException;
+import org.apache.cassandra.service.StorageProxy;
 import org.apache.cassandra.service.StorageService;
 import org.apache.cassandra.utils.ByteBufferUtil;
 import org.apache.cassandra.utils.FBUtilities;
@@ -49,14 +61,14 @@ public class MetadataRegistry extends Metadata{
 	
 	public String query(String target, String dataTag){
 		String value = null;
-		ColumnFamily cf = queryStorage(target, dataTag);
-		if (cf != null) {
+		ColumnFamily cf = remoteStorageQuery(target, dataTag); // localStorageQuery(target, dataTag);
+		if (cf != null && !cf.isEmpty()) {
 				value = new String(cf.getColumn(Column.decomposeName(dataTag, "admin_tag")).value().array());
 		} 
 		return value;
 	}
 	
-	private ColumnFamily queryStorage(String target, String dataTag) {
+	private ColumnFamily localStorageQuery(String target, String dataTag){
 		Table table = Table.open(Metadata.MetaData_KS);
 		QueryFilter filter = QueryFilter.getSliceFilter(
 				StorageService.getPartitioner().decorateKey(ByteBufferUtil.bytes(target)),
@@ -67,5 +79,25 @@ public class MetadataRegistry extends Metadata{
 				Integer.MAX_VALUE);
 		
 		return table.getColumnFamilyStore(Metadata.MetadataRegistry_CF).getColumnFamily(filter);
+	}
+	
+	private ColumnFamily remoteStorageQuery(String target, String dataTag){
+		try {
+			List<ReadCommand> command = new ArrayList<ReadCommand>();
+			command.add(new SliceFromReadCommand(
+					Metadata.MetaData_KS,
+					ByteBufferUtil.bytes(target), 
+					new QueryPath(Metadata.MetadataRegistry_CF),
+					Column.decomposeName(dataTag, "admin_tag"),
+					Column.decomposeName(dataTag, "admin_tag"),
+					false,
+					Integer.MAX_VALUE));
+
+			List<Row> rows = StorageProxy.read(command, ConsistencyLevel.ANY);
+			return rows.get(0).cf;
+			 
+		} catch (Exception e) {
+			return null;
+		}
 	}
 }
