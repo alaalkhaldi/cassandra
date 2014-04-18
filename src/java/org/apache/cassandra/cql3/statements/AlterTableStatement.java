@@ -37,6 +37,7 @@ import org.apache.cassandra.metadata.*;
 import org.apache.cassandra.service.ClientState;
 import org.apache.cassandra.service.MigrationManager;
 import org.apache.cassandra.transport.messages.ResultMessage;
+import org.apache.cassandra.utils.FBUtilities;
 
 import static org.apache.cassandra.thrift.ThriftValidation.validateColumnFamily;
 
@@ -76,6 +77,7 @@ public class AlterTableStatement extends SchemaAlteringStatement
         CFDefinition cfDef = meta.getCfDef();
         CFDefinition.Name name = columnName == null ? null : cfDef.get(columnName);
         String logValue = "";
+        String target, exists;
         		
         switch (oType)
         {
@@ -93,6 +95,12 @@ public class AlterTableStatement extends SchemaAlteringStatement
 							throw new InvalidRequestException(String.format("Invalid column name %s because it conflicts with an existing column", columnName));
                     }
                 }
+                
+                target = keyspace() + "." + columnFamily() + "." + columnName.toString();
+            	exists = MetadataRegistry.instance.query(target, Metadata.AlterColumnFamily_Drop_Tag);
+            	if(exists != null){
+            		Metadata.mutate(MetadataRegistry.instance.drop(target));
+            	}
                 
 				// The original functionality
                 AbstractType<?> type = validator.getType();
@@ -198,13 +206,28 @@ public class AlterTableStatement extends SchemaAlteringStatement
 
             case DROP:
             	ColumnDefinition toDelete = null;
+            	boolean removeColDef = false;
             	
                 if (cfDef.isCompact)
                     throw new InvalidRequestException("Cannot drop columns from a compact CF");
                 if (!cfDef.isComposite)
                 	throw new InvalidRequestException("Cannot drop columns from a non-CQL3 CF");
                 if (name == null){
-               		throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
+                	// log permanent deletion deletion in metadata
+                	target = keyspace() + "." + columnFamily() + "." + columnName.toString();
+                	exists = MetadataRegistry.instance.query(target, Metadata.AlterColumnFamily_Drop_Tag);
+                	if(exists != null){
+                		String client = (clientState == null)? "" : clientState.getUser().getName();
+                		Metadata.mutate(MetadataLog.add(target, FBUtilities.timestampMicros(), client,
+                				Metadata.AlterColumnFamily_Drop_Tag, "Permanent Drop", ""));
+//                		// register the column in the CFMetadata
+//                		Metadata.mutate(MetadataRegistry.instance.add(keyspace() + "." + columnFamily() + "." + columnName.toString(),
+//                     		   Metadata.AlterColumnFamily_Add_Tag, ""));
+                    	cfm.recordColumnDrop(columnName.toString());
+                    	break;
+                	}
+                 	else
+                 		throw new InvalidRequestException(String.format("Column %s was not found in table %s", columnName, columnFamily()));
                 }
 
                 switch (name.kind)
@@ -217,9 +240,16 @@ public class AlterTableStatement extends SchemaAlteringStatement
                         {
                             if (columnDef.name.equals(columnName.key)){
                                 toDelete = columnDef;
+                                // Register deletion in metadata
+                                Metadata.mutate(MetadataRegistry.instance.add(keyspace() + "." + columnFamily() + "." + columnName.toString(),
+                            		   Metadata.AlterColumnFamily_Drop_Tag, ""));
+                                removeColDef = true;
                             }
                         }
                         assert toDelete != null;
+                        if(removeColDef){
+                        	cfm.removeColumnDefinition(toDelete);
+                        }
                 }
                 
                 logValue = "column_name=" + columnName.toString();
@@ -252,8 +282,8 @@ public class AlterTableStatement extends SchemaAlteringStatement
                     if (from == null)
                         throw new InvalidRequestException(String.format("Column %s was not found in table %s", entry.getKey(), columnFamily()));
 
-                    CFDefinition.Name exists = cfDef.get(to);
-                    if (exists != null)
+                    CFDefinition.Name existCF = cfDef.get(to);
+                    if (existCF != null)
                         throw new InvalidRequestException(String.format("Cannot rename column %s in table %s to %s; another column of that name already exist", from, columnFamily(), to));
 
                     logValue += "from: " + from.name.toString() + ", to: " + to.toString() + "; " ;

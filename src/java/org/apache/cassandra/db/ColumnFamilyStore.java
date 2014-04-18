@@ -815,7 +815,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
             // (a) the column itself is gcable or
             // (b) the column is shadowed by a CF tombstone
             // (c) the column has been dropped from the CF schema (CQL3 tables only)
-            if (c.getLocalDeletionTime() < gcBefore || cf.deletionInfo().isDeleted(c))
+            if (c.getLocalDeletionTime() < gcBefore || cf.deletionInfo().isDeleted(c) || isDroppedColumn((Column)c, cf.metadata()))
             {
                 iter.remove();
                 indexer.remove(c);
@@ -915,6 +915,38 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
         data.addSSTables(sstables);
         CompactionManager.instance.submitBackground(this);
     }  
+     
+    // returns true if
+    // 1. this column has been dropped from schema and
+    // 2. if it has been re-added since then, this particular column was inserted before the last drop
+    private static boolean isDroppedColumn(Column c, CFMetaData meta)
+    {    	
+    	if( meta.ksName.equals(Table.SYSTEM_KS))
+    		return false;
+    	
+		if (meta.getDroppedColumns().isEmpty())
+			return false;
+
+		// check if the column is permanently dropped
+		Long mtd = meta.getDroppedColumns().get(meta.comparator.getString(c.name));
+		
+		if(mtd == null)
+			return false;
+	
+		return c.timestamp() <= mtd;
+    }
+
+    private void removeDroppedColumns(ColumnFamily cf)
+    {
+    	if (cf == null)
+			return;
+    		 
+        Iterator<IColumn> iter = cf.iterator();
+        while (iter.hasNext())
+            if (isDroppedColumn((Column)iter.next(), metadata))
+                iter.remove();
+    }
+      
     
     /**
      * Calculate expected file size of SSTable after compaction.
@@ -1225,7 +1257,7 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                 result = cf.isSuper() ? removeDeleted(cf, gcBefore) : removeDeletedCF(cf, gcBefore);
 
             }
-          
+            removeDroppedColumns(result);
         }
         finally
         {
@@ -1521,6 +1553,8 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                         if (cf != null)
                             data.addAll(cf, HeapAllocator.instance);
                     }
+                    
+                    removeDroppedColumns(data);
                                         
                     if (!filter.isSatisfiedBy(data, null))
                         continue;
@@ -1528,6 +1562,8 @@ public class ColumnFamilyStore implements ColumnFamilyStoreMBean
                     logger.trace("{} satisfies all filter expressions", data);
                     // cut the resultset back to what was requested, if necessary
                     data = filter.prune(data);
+                }else{
+                	removeDroppedColumns(data);
                 }
               
                 rows.add(new Row(rawRow.key, data));
