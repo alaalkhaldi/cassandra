@@ -298,7 +298,13 @@ public interface StorageServiceMBean extends NotificationEmitter
      * transfer this node's data to other machines and remove it from service.
      */
     public void decommission() throws InterruptedException;
-
+    
+    
+    /**
+     * verify decommission
+     */
+    public String verifyDecommission(String targetNode) throws InterruptedException;
+    
     /**
      * @param newToken token to move this node to.
      * This node will unload its data onto its neighbors, and bootstrap to the new token.

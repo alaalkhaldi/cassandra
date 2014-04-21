@@ -458,6 +458,11 @@ public class NodeProbe
     {
         ssProxy.decommission();
     }
+    
+    public String verifyDecommission(String targetNode) throws InterruptedException
+    {
+        return ssProxy.verifyDecommission(targetNode);
+    }
 
     public void move(String newToken) throws IOException, InterruptedException
     {
