@@ -143,7 +143,7 @@ fi
 
 # Specifies the default port over which Cassandra will be available for
 # JMX connections.
-JMX_PORT="7199"
+JMX_PORT="7400"
 
 
 # Here we create the arguments that will get passed to the jvm when
@@ -189,7 +189,7 @@ if [ "`uname`" = "Linux" ] ; then
     # thread-per-client.  (Best practice is for client connections to
     # be pooled anyway.) Only do so on Linux where it is known to be
     # supported.
-    # u34 and greater need 180k
+    # u34 and greater need 228k
     JVM_OPTS="$JVM_OPTS -Xss228k"
 fi
 echo "xss = $JVM_OPTS"
