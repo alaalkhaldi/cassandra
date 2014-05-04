@@ -106,9 +106,6 @@ if [ -z "$CASSANDRA_CONF" -o -z "$CLASSPATH" ]; then
     exit 1
 fi
 
-echo "CASSANDRA CONF"
-echo "$CASSANDRA_CONF"
-
 if [ -f "$CASSANDRA_CONF/cassandra-env.sh" ]; then
     . "$CASSANDRA_CONF/cassandra-env.sh"
 fi
