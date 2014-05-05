@@ -7,7 +7,7 @@
 
 # The name of the cluster. This is mainly used to prevent machines in
 # one logical cluster from joining another.
-cluster_name: 'Metadata_Tags Test Cluster'
+cluster_name: 'Test Cluster'
 
 # This defines the number of tokens randomly assigned to this node on the ring
 # The more tokens, relative to other nodes, the larger the proportion of data
@@ -21,7 +21,7 @@ cluster_name: 'Metadata_Tags Test Cluster'
 #
 # If you already have a cluster with 1 token per node, and wish to migrate to 
 # multiple tokens per node, see http://wiki.apache.org/cassandra/Operations
-num_tokens: 2
+# num_tokens: 256
 
 # If you haven't specified num_tokens, or have set it to the default of 1 then
 # you should always specify InitialToken when setting up a production
@@ -232,7 +232,7 @@ seed_provider:
       parameters:
           # seeds is actually a comma-delimited list of addresses.
           # Ex: "<ip1>,<ip2>,<ip3>"
-          - seeds: "127.0.0.2"
+          - seeds: "127.0.0.1"
 
 # emergency pressure valve: each time heap usage after a full (CMS)
 # garbage collection is above this fraction of the max, Cassandra will
@@ -323,7 +323,7 @@ ssl_storage_port: 7001
 # address associated with the hostname (it might not be).
 #
 # Setting this to 0.0.0.0 is always wrong.
-listen_address: 127.0.0.4
+listen_address: localhost
 
 # Address to broadcast to other Cassandra nodes
 # Leaving this blank will set it to the same value as listen_address
@@ -360,7 +360,7 @@ start_rpc: true
 # here if you want to listen on all interfaces but is not best practice
 # as it is known to confuse the node auto-discovery features of some
 # client drivers.
-rpc_address: 127.0.0.4
+rpc_address: localhost
 # port for Thrift to listen for clients on
 rpc_port: 9160
 
